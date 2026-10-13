@@ -74,7 +74,7 @@ export function drawHero(ctx, time) {
 export function drawCard(ctx, game) {
   const w = 640, h = 330;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = { flappy: '#dfeeda', angry: '#f7e9cf', whack: '#e9e6f3', catch: '#dceef1', jump: '#f1e0e8', merge: '#f2ebca' }[game]; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = { flappy: '#dfeeda', angry: '#f7e9cf', whack: '#e9e6f3', catch: '#dceef1', jump: '#f1e0e8', merge: '#f2ebca', fighter: '#f1ded1', survivor: '#dbe6d9', bomber: '#e7dff0' }[game]; ctx.fillRect(0, 0, w, h);
   if (game === 'flappy') {
     cloud(ctx, 155, 88, .8); cloud(ctx, 426, 62, .65);
     ctx.fillStyle = '#c5dcb3';ctx.beginPath();ctx.ellipse(470,366,340,120,0,0,Math.PI*2);ctx.fill();
@@ -118,6 +118,45 @@ export function drawCard(ctx, game) {
     drawFrog(ctx,309,144,108,{pose:'wave',rotation:.2});
     ctx.strokeStyle='#a8b785';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(475,232,29,8,0,0,Math.PI*2);ctx.stroke();
     ctx.fillStyle='#93778a';ctx.font='bold 22px sans-serif';ctx.fillText('完美！',429,185);
+  } else if (game === 'fighter') {
+    ctx.save();
+    ctx.fillStyle = '#ddc4b1'; ctx.beginPath(); ctx.ellipse(320, 294, 250, 48, 0, 0, Math.PI * 2); ctx.fill();
+    for (const y of [154, 210]) { ctx.strokeStyle = '#bd9b88'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(75, y); ctx.lineTo(565, y); ctx.stroke(); }
+    for (const x of [72, 563]) { ctx.fillStyle = '#977864'; ctx.beginPath(); ctx.roundRect(x, 107, 9, 180, 4); ctx.fill(); }
+    ctx.fillStyle = '#fffaed'; ctx.beginPath(); ctx.roundRect(121, 58, 157, 15, 6); ctx.roundRect(362, 58, 157, 15, 6); ctx.fill();
+    ctx.fillStyle = '#90aa79'; ctx.fillRect(125, 62, 140, 7); ctx.fillStyle = '#c28d9a'; ctx.fillRect(366, 62, 120, 7);
+    drawFrog(ctx, 217, 197, 126, { pose: 'angry', rotation: .12 });
+    drawFrog(ctx, 443, 195, 122, { pose: 'laugh', scaleX: -1, rotation: -.12 });
+    ctx.font = '900 italic 40px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#a57c5e'; ctx.fillText('VS', 329, 168);
+    ctx.strokeStyle = '#f9f2d4'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(295, 194); ctx.lineTo(317, 212); ctx.lineTo(341, 192); ctx.stroke();
+    ctx.restore();
+  } else if (game === 'survivor') {
+    ctx.save();
+    ctx.strokeStyle = '#a8c0a6'; ctx.lineWidth = 2; ctx.setLineDash([4, 8]); ctx.beginPath(); ctx.ellipse(320, 200, 176, 90, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    for (let i = 0; i < 8; i++) {
+      const angle = i * Math.PI / 4, x = 320 + Math.cos(angle) * 212, y = 187 + Math.sin(angle) * 100;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(angle) * .2);
+      ctx.fillStyle = i % 2 ? '#d4b6a2' : '#b2b2c6'; ctx.beginPath(); ctx.roundRect(-18, -25, 36, 46, 5); ctx.fill();
+      ctx.fillStyle = '#fff6dc'; ctx.fillRect(-12, -15, 24, 21); ctx.fillStyle = '#75695e'; ctx.fillRect(-8, -10, 4, 5); ctx.fillRect(4, -10, 4, 5); ctx.restore();
+    }
+    ctx.strokeStyle = '#ebcb77'; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(320, 200, 99, -.5, 1.8); ctx.stroke();
+    drawFrog(ctx, 316, 167, 120, { pose: 'laugh', crown: true });
+    for (const [x, y] of [[172, 145], [458, 228], [259, 295]]) { ctx.save(); ctx.translate(x, y); ctx.rotate(.75); ctx.fillStyle = '#82bca8'; ctx.fillRect(-7, -7, 14, 14); ctx.restore(); }
+    ctx.restore();
+  } else if (game === 'bomber') {
+    ctx.save();
+    for (let row = 0; row < 4; row++) for (let col = 0; col < 8; col++) {
+      const x = 99 + col * 58, y = 67 + row * 55;
+      ctx.fillStyle = row % 2 === 1 && col % 2 === 1 ? '#b9b0cb' : '#f3ecf5';
+      ctx.beginPath(); ctx.roundRect(x, y, 51, 48, 5); ctx.fill();
+    }
+    for (const [x, y] of [[157, 67], [447, 177], [331, 67]]) { ctx.fillStyle = '#caa887'; ctx.beginPath(); ctx.roundRect(x, y, 51, 48, 5); ctx.fill(); ctx.strokeStyle = '#e9cba6'; ctx.lineWidth = 3; ctx.strokeRect(x + 6, y + 6, 39, 36); ctx.beginPath(); ctx.moveTo(x + 6, y + 6); ctx.lineTo(x + 45, y + 42); ctx.stroke(); }
+    ctx.fillStyle = '#f2c886'; ctx.beginPath(); ctx.roundRect(299, 232, 156, 38, 12); ctx.roundRect(357, 174, 38, 148, 12); ctx.fill();
+    ctx.fillStyle = '#665675'; ctx.beginPath(); ctx.arc(374, 247, 29, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ad9263'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(378, 219); ctx.quadraticCurveTo(383, 195, 402, 207); ctx.stroke();
+    ctx.fillStyle = '#f6ce63'; ctx.beginPath(); ctx.arc(403, 207, 7, 0, Math.PI * 2); ctx.fill();
+    drawFrog(ctx, 225, 191, 116, { pose: 'run', rotation: -.12 });
+    ctx.restore();
   } else if (game === 'merge') {
     const tiles=[{x:120,y:88,n:2,pose:'idle',color:'#edf1d9'},{x:262,y:88,n:4,pose:'wave',color:'#dae8d0'},{x:403,y:88,n:2048,pose:'laugh',color:'#e9ca68'}];
     for(const t of tiles){ctx.fillStyle='#c4be9a';ctx.beginPath();ctx.roundRect(t.x-5,t.y-5,124,163,13);ctx.fill();ctx.fillStyle=t.color;ctx.beginPath();ctx.roundRect(t.x,t.y,114,153,10);ctx.fill();drawFrog(ctx,t.x+57,t.y+71,75,{pose:t.pose});ctx.fillStyle='#52603c';ctx.font='800 24px sans-serif';ctx.textAlign='center';ctx.fillText(String(t.n),t.x+57,t.y+140);}ctx.textAlign='left';

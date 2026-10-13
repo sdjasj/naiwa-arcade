@@ -71,10 +71,10 @@ async function canvasPoint(page, x, y) {
   };
 }
 
-test('desktop lobby renders and switches between all six games', async ({ page }) => {
+test('desktop lobby renders and switches between all nine games', async ({ page }) => {
   await openArcade(page);
   await expect(page).toHaveTitle(/奶蛙摸鱼乐园/);
-  await expect(page.locator('[data-game]')).toHaveCount(6);
+  await expect(page.locator('[data-game]')).toHaveCount(9);
   await expect(page.locator('#hero-title')).toContainText('让奶蛙替你');
   await page.screenshot({ path: join(tmpdir(), 'naiwa-desktop.png'), fullPage: true });
 

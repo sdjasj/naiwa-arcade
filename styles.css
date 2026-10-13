@@ -9,9 +9,16 @@
 
 /* The expanded collection and in-game controls. */
 .game-cards { row-gap: 25px; }
+.new-arrivals { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 13px 17px; background: #eff3e5; border: 1px solid #dee5cc; border-radius: 10px; margin-bottom: 20px; }
+.new-arrivals strong { color: #69814f; font-size: 11px; margin-right: auto; }
+.new-arrivals button { padding: 6px 10px; border: 1px solid #d5dfc2; border-radius: 6px; background: #fffef7; font-size: 11px; color: #536a42; }
+.new-arrivals button:hover { background: #dfe9cd; }
 .catch-art { background: #dceef1; }
 .jump-art { background: #f1e0e8; }
 .merge-art { background: #f2ebca; }
+.fighter-art { background: #f1ded1; }
+.survivor-art { background: #dbe6d9; }
+.bomber-art { background: #e7dff0; }
 .new-badge { color: #546f59; font-weight: 600; }
 .game-settings { display: flex; align-items: center; gap: 20px; margin: -4px 0 17px; flex-wrap: wrap; }
 .game-settings label { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #7b886c; }
@@ -39,6 +46,29 @@
 .puzzle-controls>span { font-size: 9px; color: #899678; }
 .game-sidebar:has(.level-panel:not([hidden])) .frog-note, .game-sidebar:has(.forms-panel:not([hidden])) .frog-note { display: none; }
 .player-window:fullscreen.puzzle-mode .canvas-stage { aspect-ratio: auto; }
+.action-controls { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; background: #fcfcf4; border-top: 1px solid #e4e9d7; touch-action: none; user-select: none; }
+.action-dpad { display: grid; grid-template: repeat(2, 43px) / repeat(3, 48px); gap: 5px; }
+.action-buttons { display: grid; grid-template-columns: repeat(2, minmax(62px, 1fr)); gap: 7px; }
+.action-buttons:has(button:only-child) { grid-template-columns: 95px; }
+.action-controls button { border: 1px solid #d2dcc6; background: #edf2e3; border-radius: 9px; min-height: 43px; padding: 5px 10px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.action-controls button strong { font-size: 13px; font-weight: 700; }
+.action-controls button small { display: block; font-size: 9px; margin-top: 1px; color: #758566; }
+.action-controls button.held { background: #547447; color: #fff; transform: translateY(1px); border-color: #547447; }
+.action-controls button.held small { color: #e7efdf; }
+.action-buttons button[data-action="special"], .action-buttons button[data-action="bomb"] { background: #f4e4c6; border-color: #decbab; }
+.action-buttons button.held { background: #547447; }
+.action-hint { white-space: pre-line; text-align: center; color: #8c987c; font-size: 10px; line-height: 1.9; }
+.duel-guide { margin: 0; padding: 10px 16px; border-top: 1px solid #e4e9d7; color: #7c6a80; background: #f5f0f6; font-size: 11px; line-height: 1.8; }
+.upgrade-panel { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: center; padding: 24px; background: #f5f1df; overflow: auto; }
+.upgrade-heading { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin: 0 auto 12px; width: 100%; max-width: 640px; }
+.upgrade-heading strong { font-size: 13px; color: #6d6239; }
+.upgrade-heading span { font-size: 10px; color: #958650; }
+.upgrade-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; width: 100%; max-width: 640px; margin: 0 auto; }
+.upgrade-options button { padding: 13px; background: #fffdf4; border: 1px solid #ddd3ad; border-radius: 8px; text-align: left; }
+.upgrade-options button:hover { background: #eef3de; border-color: #98ad7d; }
+.upgrade-options b { display: block; font-size: 12px; margin-bottom: 7px; }
+.upgrade-options span { display: block; font-size: 10px; line-height: 1.7; color: #83906a; }
+.player-window:fullscreen .action-controls, .player-window:fullscreen .upgrade-panel, .player-window:fullscreen .duel-guide { flex-shrink: 0; }
 @media(max-width:760px) {
   .game-sidebar:has(.level-panel:not([hidden])), .game-sidebar:has(.forms-panel:not([hidden])) { grid-template-columns: 1fr 1fr; }
   .game-settings { gap: 12px; }
@@ -47,6 +77,9 @@
 }
 @media(max-width:520px) {
   .game-cards { gap: 13px; }
+  .new-arrivals { padding: 12px; gap: 7px; }
+  .new-arrivals strong { flex-basis: 100%; margin-bottom: 2px; }
+  .new-arrivals button { font-size: 10px; padding: 6px 8px; }
   .game-settings { gap: 10px; margin-bottom: 13px; }
   .game-settings label { gap: 6px; font-size: 10px; }
   .game-settings select { padding: 7px 17px 7px 7px; font-size: 10px; }
@@ -59,4 +92,17 @@
   .puzzle-controls button { font-size: 11px; padding: 9px; }
   .direction-pad button { font-size: 18px; min-width: 36px; }
   .merge-art canvas { object-position: 73% center; }
+  .action-controls { padding: 10px; gap: 8px; }
+  .action-dpad { grid-template: repeat(2, 44px) / repeat(3, 42px); gap: 4px; }
+  .action-buttons { grid-template-columns: repeat(2, 65px); gap: 5px; }
+  .action-controls button { padding: 5px 7px; }
+  .action-hint { display: none; }
+  .duel-guide { font-size: 10px; padding: 9px 12px; }
+  .upgrade-panel { padding: 12px; justify-content: start; }
+  .upgrade-heading { align-items: start; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+  .upgrade-options { gap: 6px; }
+  .upgrade-options button { padding: 10px 8px; }
+  .upgrade-options b { font-size: 11px; }
+  .upgrade-options span { font-size: 10px; }
+  .fighter-art canvas, .survivor-art canvas, .bomber-art canvas { object-fit: contain; }
 }
