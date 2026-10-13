@@ -1,6 +1,6 @@
 {
   "name": "naiwa-arcade",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "大笑奶蛙摸鱼乐园：六款网页小游戏、12 关弹弓与奶蛙 2048",
   "scripts": {
     "dev": "python3 -m http.server 8080 --bind 127.0.0.1",

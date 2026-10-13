@@ -9,6 +9,7 @@ export function createGame(env) {
   const basketWidth = 160;
   const moveSpeed = 790;
   let phase = 'idle';
+  let endless = env.endless === true;
   let basketX = width / 2;
   let lives = 3;
   let score = 0;
@@ -37,9 +38,10 @@ export function createGame(env) {
   let endSent = false;
   const held = { left: false, right: false };
 
-  const waveCount = () => 5 + wave;
+  const waveCount = () => Math.min(18, 5 + wave);
   const interval = () => Math.max(0.76, 1.3 - (wave - 1) * 0.076);
-  const fallSpeed = () => 137 + (wave - 1) * 17;
+  const fallSpeed = () => Math.min(340, 137 + (wave - 1) * 17);
+  const driftLimit = () => Math.min(28, 14 + wave);
   const sound = kind => audio?.play?.(kind);
   const status = message => onStatus?.(message);
 
@@ -48,7 +50,8 @@ export function createGame(env) {
     held.right = false;
   }
 
-  function start() {
+  function start(options = {}) {
+    if (options?.endless !== undefined) endless = options.endless === true;
     phase = 'playing';
     basketX = width / 2;
     lives = 3;
@@ -78,7 +81,7 @@ export function createGame(env) {
     endSent = false;
     cancelInput();
     onScore?.(0);
-    status('第 1 / 8 波 · 移动篮子接奶蛙，漏接会扣 1 颗心。');
+    status(`${endless ? '无限模式 · 第 1 波' : '第 1 / 8 波'} · 移动篮子接奶蛙，漏接会扣 1 颗心。`);
   }
 
   function spawn() {
@@ -101,7 +104,7 @@ export function createGame(env) {
       id: nextId++, kind, x, baseX: x, y: -67,
       speed: fallSpeed(), checked: false,
       spin: (Math.random() * 2 - 1) * 0.15,
-      drift: wave >= 4 && kind !== 'bomb' ? 14 + wave : 0,
+      drift: wave >= 4 && kind !== 'bomb' ? driftLimit() : 0,
       age: 0,
     };
     objects.push(item);
@@ -206,8 +209,8 @@ export function createGame(env) {
       if (phaseTime >= 0.85 && !endSent) {
         endSent = true;
         phase = 'ended';
-        onEnd?.({ score, won, title: won ? '奶蛙快递，全部签收！' : '奶蛙接不住，笑声拦不住。',
-          message: `接住 ${caught} 只奶蛙，最高 ${bestCombo} 连接。${won ? '八波全部完成，下次争取三颗心带回家！' : `闯到第 ${wave} 波，再来一次，把篮子移到奶蛙下面！`}` });
+        onEnd?.({ score, won, endless, wave, title: endless ? '无限接蛙，篮子下班！' : won ? '奶蛙快递，全部签收！' : '奶蛙接不住，笑声拦不住。',
+          message: `接住 ${caught} 只奶蛙，最高 ${bestCombo} 连接。${endless ? `无限模式坚持到第 ${wave} 波，累计 ${score} 分！` : won ? '八波全部完成，下次争取三颗心带回家！' : `闯到第 ${wave} 波，再来一次，把篮子移到奶蛙下面！`}` });
       }
       return;
     }
@@ -223,7 +226,7 @@ export function createGame(env) {
         previousKind = 'frog';
         phase = 'playing';
         phaseTime = 0;
-        status(`第 ${wave} / ${TOTAL_WAVES} 波 · ${wave >= 4 ? '奶蛙开始左右飘了' : '金色光圈的奶蛙值 30 分'} · 黑色炸弹别接！`);
+        status(`${endless ? `无限第 ${wave} 波` : `第 ${wave} / ${TOTAL_WAVES} 波`} · ${wave >= 4 ? '奶蛙开始左右飘了' : '金色光圈的奶蛙值 30 分'} · 黑色炸弹别接！`);
       }
       return;
     }
@@ -263,7 +266,7 @@ export function createGame(env) {
     }
     objects = objects.filter(item => !item.resolved);
     if (phase === 'playing' && waveSpawned === waveCount() && objects.length === 0) {
-      if (wave === TOTAL_WAVES) finish(true);
+      if (!endless && wave === TOTAL_WAVES) finish(true);
       else {
         phase = 'intermission'; phaseTime = 0; sound('score');
         status(`第 ${wave} 波接完！稍微喘口气，下一波马上来。`);
@@ -418,7 +421,7 @@ export function createGame(env) {
     text('剩余机会', 40, 41, 14, '#859077', 'left');
     for (let i = 0; i < 3; i += 1) heart(112 + i * 29, 48, i < lives);
     rounded(width / 2 - 125, 17, 250, 65, 17, '#fffdf4e8');
-    text(`第 ${wave} / ${TOTAL_WAVES} 波`, width / 2, 43, 22);
+    text(endless ? `无限 · 第 ${wave} 波` : `第 ${wave} / ${TOTAL_WAVES} 波`, width / 2, 43, 22);
     rounded(width / 2 - 95, 56, 190, 9, 4, '#e6ead6');
     const progress = Math.max(0, Math.min(1, waveResolved / waveCount()));
     if (progress > 0) rounded(width / 2 - 95, 56, 190 * progress, 9, 4, '#a5bd6d');
@@ -434,7 +437,7 @@ export function createGame(env) {
     if (phase === 'intermission' || (phase === 'ending' && won)) {
       rounded(width / 2 - 190, 208, 380, 115, 23, '#fffdf2ee', '#c4d5a3');
       text(won ? '全部签收！' : `第 ${wave} 波，稳稳接住！`, width / 2, 252, 27);
-      text(won ? '奶蛙快递：五星好评。' : `下一波 ${wave + 1} / ${TOTAL_WAVES}，准备接蛙。`, width / 2, 288, 18, '#819164');
+      text(won ? '奶蛙快递：五星好评。' : endless ? `无限第 ${wave + 1} 波，分数继续累计。` : `下一波 ${wave + 1} / ${TOTAL_WAVES}，准备接蛙。`, width / 2, 288, 18, '#819164');
     }
     ctx.restore();
   }
@@ -448,12 +451,13 @@ export function createGame(env) {
     destroy() { phase = 'idle'; cancelInput(); objects = []; particles = []; labels = []; ghosts = []; caughtFrog = null; },
     getState() {
       return {
-        phase, score, lives, wave, totalWaves: TOTAL_WAVES, waveSpawned, waveResolved,
+        phase, score, lives, endless, wave, totalWaves: endless ? null : TOTAL_WAVES, waveSpawned, waveResolved,
         waveCount: waveCount(), elapsed, phaseTime, spawnTimer, combo, bestCombo,
+        fallSpeed: fallSpeed(), spawnInterval: interval(), driftLimit: driftLimit(),
         caught, missed, bombsHit, bombsDodged, won,
         basket: { x: basketX, y: basketY, width: basketWidth, speed: moveSpeed },
         held: { ...held },
-        objects: objects.map(({ id, kind, x, y, speed, checked }) => ({ id, kind, x, y, speed, checked })),
+        objects: objects.map(({ id, kind, x, y, speed, drift, checked }) => ({ id, kind, x, y, speed, drift, checked })),
       };
     },
   };

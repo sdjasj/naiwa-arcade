@@ -32,6 +32,7 @@ const SCENES = [
 export function createGame(env) {
   const { ctx, drawFrog, audio, onScore, onStatus, onEnd } = env;
   let phase = 'idle';
+  let endless = env.endless === true;
   let score = 0;
   let level = 0;
   let shots = 3;
@@ -65,6 +66,10 @@ export function createGame(env) {
   }
 
   function copyProgress() { return { unlocked: progress.unlocked, stars: { ...progress.stars } }; }
+  function layoutIndex() { return level % LEVELS.length; }
+  function levelInfo() { return LEVELS[layoutIndex()]; }
+  function loopNumber() { return Math.floor(level / LEVELS.length) + 1; }
+  function challengeScale() { return endless ? 1 + Math.min(4, loopNumber() - 1) * 0.08 : 1; }
 
   function sound(kind) { audio?.play?.(kind); }
   function status(text) { onStatus?.(text); }
@@ -92,10 +97,11 @@ export function createGame(env) {
 
   function loadLevel(index) {
     level = index;
+    const layout = layoutIndex();
     bodies = [];
     particles = [];
     trail = [];
-    shots = LEVELS[index].shots;
+    shots = levelInfo().shots;
     frog = null;
     phase = 'ready';
     phaseTime = 0;
@@ -103,51 +109,51 @@ export function createGame(env) {
     flightTime = 0;
     trailTime = 0;
     comboTime = 0;
-    aimAngle = (index === 2 ? 47 : 42) * Math.PI / 180;
+    aimAngle = (layout === 2 ? 47 : 42) * Math.PI / 180;
     aimPower = 0.8;
     keyboardAiming = false;
     dragStartAim = null;
-    if (index === 0) {
+    if (layout === 0) {
       tower(701, GROUND, 130, 86);
-    } else if (index === 1) {
+    } else if (layout === 1) {
       tower(648, GROUND, 120, 92, false);
       tower(827, GROUND, 104, 128, true);
       body(650, GROUND - 120, 34, 40, true);
-    } else if (index === 2) {
+    } else if (layout === 2) {
       tower(710, GROUND, 182, 95, false);
       const upperBase = GROUND - 115;
       tower(710, upperBase, 110, 76, true);
       body(845, GROUND - 20, 34, 40, true);
-    } else if (index === 3) {
+    } else if (layout === 3) {
       for (const x of [556, 708, 860]) tower(x, GROUND, 86, 64);
-    } else if (index === 4) {
+    } else if (layout === 4) {
       tower(742, GROUND, 194, 108, false);
       tower(742, GROUND - 128, 120, 110);
       body(589, GROUND - 20, 34, 40, true);
-    } else if (index === 5) {
+    } else if (layout === 5) {
       for (const x of [609, 830]) {
         tower(x, GROUND, 126, 74, false);
         tower(x, GROUND - 94, 82, 74);
       }
-    } else if (index === 6) {
+    } else if (layout === 6) {
       tower(540, GROUND, 82, 64);
       tower(704, GROUND, 92, 110);
       tower(867, GROUND, 90, 154);
-    } else if (index === 7) {
+    } else if (layout === 7) {
       tower(592, GROUND, 112, 110, false);
       tower(826, GROUND, 112, 110, false);
       body(709, GROUND - 140, 370, 20);
       for (const x of [635, 709, 783]) body(x, GROUND - 170, 34, 40, true);
-    } else if (index === 8) {
+    } else if (layout === 8) {
       tower(719, GROUND, 224, 85, false);
       tower(719, GROUND - 105, 154, 79, false);
       tower(719, GROUND - 204, 88, 73);
       for (const x of [549, 882]) body(x, GROUND - 20, 34, 40, true);
-    } else if (index === 9) {
+    } else if (layout === 9) {
       tower(542, GROUND, 96, 170);
       tower(832, GROUND, 134, 92);
       for (const x of [657, 713]) body(x, GROUND - 20, 34, 40, true);
-    } else if (index === 10) {
+    } else if (layout === 10) {
       tower(548, GROUND, 82, 96);
       tower(870, GROUND, 82, 96);
       tower(710, GROUND, 150, 93, false);
@@ -158,10 +164,16 @@ export function createGame(env) {
       tower(782, GROUND - 112, 94, 108);
       for (const x of [526, 895]) body(x, GROUND - 20, 34, 40, true);
     }
-    status(`第 ${level + 1} / ${LEVELS.length} 关 · ${LEVELS[level].name} · ${shots} 发 · ${LEVELS[level].hint}`);
+    if (endless && loopNumber() > 1) {
+      const shift = [0, -22, 14, -8][(loopNumber() - 1) % 4];
+      const durability = challengeScale();
+      for (const b of bodies) { b.x += shift; b.hp *= durability; b.maxHp *= durability; }
+    }
+    status(`${endless ? `无限第 ${level + 1} 关` : `第 ${level + 1} / ${LEVELS.length} 关`} · ${levelInfo().name} · ${shots} 发 · ${levelInfo().hint}`);
   }
 
   function start(options = {}) {
+    if (options?.endless !== undefined) endless = options.endless === true;
     score = 0;
     elapsed = 0;
     shake = 0;
@@ -177,10 +189,11 @@ export function createGame(env) {
     phase = 'ended';
     endSent = true;
     sound(win ? 'win' : 'miss');
-    onEnd?.({ score, level: level + 1, won: win, stars: earnedStars,
-      title: win ? '奶蛙拆迁队，收工！' : '笑是笑了，房还在',
-      message: win ? `第 ${LEVELS.length} 关完工！已获得 ${Object.values(progress.stars).reduce((sum, n) => sum + n, 0)} 颗星，回去挑战每关三星吧。`
-        : `第 ${level + 1} 关「${LEVELS[level].name}」还有 ${targetCount()} 个奶盒在偷笑。${LEVELS[level].hint}` });
+    onEnd?.({ score, endless, level: level + 1, won: win, stars: earnedStars,
+      title: endless ? '无限拆迁，肚子先歇会儿' : win ? '奶蛙拆迁队，收工！' : '笑是笑了，房还在',
+      message: endless ? `无限模式闯到第 ${level + 1} 关，累计 ${score} 分！还有 ${targetCount()} 个奶盒在偷笑，弹药用完啦。`
+        : win ? `第 ${LEVELS.length} 关完工！已获得 ${Object.values(progress.stars).reduce((sum, n) => sum + n, 0)} 颗星，回去挑战每关三星吧。`
+          : `第 ${level + 1} 关「${levelInfo().name}」还有 ${targetCount()} 个奶盒在偷笑。${levelInfo().hint}` });
   }
 
   function burst(x, y, color, count = 12) {
@@ -386,19 +399,23 @@ export function createGame(env) {
     }
     if (targetCount() === 0 && phase !== 'levelclear') {
       addScore(shots * 100 + 150);
-      earnedStars = shots >= Math.ceil(LEVELS[level].shots / 2) ? 3 : shots >= 1 ? 2 : 1;
-      progress.stars[level + 1] = Math.max(progress.stars[level + 1] || 0, earnedStars);
-      progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, level + 2));
-      env.onProgress?.(copyProgress());
+      if (!endless) {
+        earnedStars = shots >= Math.ceil(levelInfo().shots / 2) ? 3 : shots >= 1 ? 2 : 1;
+        progress.stars[level + 1] = Math.max(progress.stars[level + 1] || 0, earnedStars);
+        progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, level + 2));
+        env.onProgress?.(copyProgress());
+      }
       phase = 'levelclear';
       phaseTime = 0;
       sound('win');
-      combo = `${'★'.repeat(earnedStars)}${'☆'.repeat(3 - earnedStars)}  ${LEVELS[level].name} · 奖励 +${shots * 100}`;
+      combo = endless ? `无限第 ${level + 1} 关清场！补充弹药 · 奖励 +${shots * 100}`
+        : `${'★'.repeat(earnedStars)}${'☆'.repeat(3 - earnedStars)}  ${levelInfo().name} · 奖励 +${shots * 100}`;
       comboTime = 2;
-      status(level < LEVELS.length - 1 ? `获得 ${earnedStars} 颗星！下一站：${LEVELS[level + 1].name}…` : '终极工地完工！奶蛙今天也很努力。');
+      status(endless ? `无限拆迁继续！下一关 ${level + 2} · 分数继续累计，弹药重新装满。`
+        : level < LEVELS.length - 1 ? `获得 ${earnedStars} 颗星！下一站：${LEVELS[level + 1].name}…` : '终极工地完工！奶蛙今天也很努力。');
     }
     if (phase === 'levelclear' && phaseTime > 1.7) {
-      if (level < LEVELS.length - 1) loadLevel(level + 1);
+      if (endless || level < LEVELS.length - 1) loadLevel(level + 1);
       else finish(true);
     } else if (phase === 'settling' && phaseTime > 1.7) {
       if (shots <= 0) finish(false);
@@ -473,7 +490,7 @@ export function createGame(env) {
   }
 
   function drawBackground(time) {
-    const scene = SCENES[Math.floor(level / 3)];
+    const scene = SCENES[Math.floor(layoutIndex() / 3)];
     ctx.fillStyle = scene.sky; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = scene.sun; ctx.beginPath(); ctx.arc(809, 100, 42, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#db9360'; ctx.lineWidth = 2;
@@ -495,14 +512,14 @@ export function createGame(env) {
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 8, y + 2); ctx.stroke();
     }
     ctx.fillStyle = '#4f5840'; ctx.font = '700 17px system-ui, sans-serif';
-    ctx.textAlign = 'left'; ctx.fillText(`${String(level + 1).padStart(2, '0')} / ${LEVELS.length}  ${LEVELS[level].name}`, 30, 38);
+    ctx.textAlign = 'left'; ctx.fillText(`${endless ? `无限 ${level + 1}` : `${String(level + 1).padStart(2, '0')} / ${LEVELS.length}`}  ${levelInfo().name}`, 30, 38);
     ctx.fillStyle = '#77755f'; ctx.font = '13px system-ui, sans-serif';
     ctx.fillText(`${scene.name} · 奶盒剩余 ${targetCount()} 个`, 30, 61);
     ctx.textAlign = 'right'; ctx.fillStyle = '#4f5840'; ctx.font = '700 15px system-ui, sans-serif';
-    ctx.fillText(`剩余弹药  ${shots} / ${LEVELS[level].shots}`, W - 30, 38);
+    ctx.fillText(`剩余弹药  ${shots} / ${levelInfo().shots}`, W - 30, 38);
     const bestStars = progress.stars[level + 1] || 0;
     ctx.fillStyle = bestStars ? '#a36e37' : '#858274'; ctx.font = '14px system-ui, sans-serif';
-    ctx.fillText(`最佳 ${'★'.repeat(bestStars)}${'☆'.repeat(3 - bestStars)}`, W - 30, 61);
+    ctx.fillText(endless ? `第 ${loopNumber()} 轮 · 累计 ${score} 分` : `最佳 ${'★'.repeat(bestStars)}${'☆'.repeat(3 - bestStars)}`, W - 30, 61);
     ctx.textAlign = 'center'; ctx.font = '13px system-ui, sans-serif'; ctx.fillStyle = '#72573d';
     ctx.fillText('拖住奶蛙向左下拉，松手发射  ·  ↑↓ 调角度  ←→ 调力度  空格发射', W / 2, 538);
   }
@@ -648,8 +665,8 @@ export function createGame(env) {
   }
 
   function getState() {
-    return { phase, score, shots, level: level + 1, totalLevels: LEVELS.length,
-      levelName: LEVELS[level].name, maxShots: LEVELS[level].shots,
+    return { phase, score, shots, endless, level: level + 1, totalLevels: endless ? null : LEVELS.length,
+      levelName: levelInfo().name, templateLevel: layoutIndex() + 1, loop: loopNumber(), challengeScale: challengeScale(), maxShots: levelInfo().shots,
       stars: earnedStars, progress: copyProgress(), targets: targetCount(),
       aimAngle: Math.round(aimAngle * 180 / Math.PI), aimPower,
       frog: frog ? { x: frog.x, y: frog.y, vx: frog.vx, vy: frog.vy } : null,
