@@ -1,7 +1,62 @@
-// Meme sprite provided by NaiLoong / linalg. See assets/ATTRIBUTION.md.
+import { FROG_ATLASES } from './frog-atlas.js';
+import { sampleFrogAnimation } from './frog-animation.js';
+
+// Meme sprite provided by NaiLoong / linalg. New action frames are generated
+// from that identity reference; see assets/ATTRIBUTION.md.
 const sheet = new Image();
 sheet.src = new URL('../assets/naifrog-sheet.webp', import.meta.url).href;
-export const frogReady = sheet.decode().catch(() => undefined);
+const actionSheets = Object.fromEntries(Object.entries(FROG_ATLASES).map(([name, atlas]) => {
+  const image = new Image();
+  image.src = new URL(`../assets/animation/${atlas.file}`, import.meta.url).href;
+  return [name, image];
+}));
+export const frogReady = Promise.all([sheet, ...Object.values(actionSheets)].map(image => image.decode().catch(() => undefined)));
+const actionSheetReady = name => actionSheets[name]?.complete && actionSheets[name].naturalWidth === 1536 && actionSheets[name].naturalHeight === 1024;
+export function frogAnimationStatus() {
+  return Object.fromEntries(Object.keys(actionSheets).map(name => [name, actionSheetReady(name)]));
+}
+// Composite frame dissolves offscreen. Additive alpha here preserves opacity
+// without adding the sprite's color to the game background or drawing ghosts.
+const animationCanvas = document.createElement('canvas');
+animationCanvas.width = animationCanvas.height = 320;
+const animationContext = animationCanvas.getContext('2d');
+function drawActionFrame(ctx, size, options) {
+  const current = sampleFrogAnimation(options.animation, options.animationTime, options.animationProgress);
+  if (!current || !actionSheetReady(current.atlas)) return false;
+  const from = options.animationFrom;
+  const candidate = from && sampleFrogAnimation(from.name, from.time, from.progress);
+  const previous = candidate && actionSheetReady(candidate.atlas) ? candidate : null;
+  const mix = previous && Number.isFinite(options.animationMix) ? Math.max(0, Math.min(1, options.animationMix)) : 1;
+  const unit = size * 1.6 / 256;
+  // Most frames need no dissolve. Draw directly from the atlas in that case,
+  // avoiding an offscreen surface copy for every spectator on mobile devices.
+  if (mix === 1 && current.blend === 0) {
+    const atlas = FROG_ATLASES[current.atlas], frame = atlas.frames[current.row][current.frame];
+    const scale = atlas.scales[current.row] * unit;
+    ctx.drawImage(actionSheets[current.atlas], frame.x, frame.y, frame.width, frame.height,
+      (frame.left - 128) * scale, size * .64 - frame.foot * scale, frame.width * scale, frame.height * scale);
+    return true;
+  }
+  animationContext.clearRect(0, 0, 320, 320);
+  animationContext.globalCompositeOperation = 'lighter';
+  function layer(sample, opacity) {
+    if (!sample || opacity <= 0) return;
+    const atlas = FROG_ATLASES[sample.atlas], image = actionSheets[sample.atlas];
+    if (!image.complete || !image.naturalWidth) return;
+    const scale = atlas.scales[sample.row];
+    for (const [index, weight] of [[sample.frame, 1 - sample.blend], [sample.next, sample.blend]]) {
+      if (weight <= 0) continue;
+      const frame = atlas.frames[sample.row][index];
+      animationContext.globalAlpha = weight * opacity;
+      animationContext.drawImage(image, frame.x, frame.y, frame.width, frame.height,
+        160 + (frame.left - 128) * scale, 288 - frame.foot * scale, frame.width * scale, frame.height * scale);
+    }
+  }
+  layer(previous, 1 - mix); layer(current, mix);
+  animationContext.globalAlpha = 1;
+  ctx.drawImage(animationCanvas, -160 * unit, size * .64 - 288 * unit, 320 * unit, 320 * unit);
+  return true;
+}
 let animationTime = 0;
 export function setFrogTime(time) { animationTime = time; }
 
@@ -25,7 +80,8 @@ export function drawFrog(ctx, x, y, size, options = {}) {
       ctx.fill(); ctx.stroke(); ctx.restore();
     }
   }
-  if (sheet.complete && sheet.naturalWidth) {
+  const animated = drawActionFrame(ctx, size, options);
+  if (!animated && sheet.complete && sheet.naturalWidth) {
     let row = 0, col = Math.floor(animationTime * 2) % 6;
     if (expression === 'laugh') { row = 4; col = 1 + Math.floor(animationTime * 9) % 4; }
     else if (expression === 'angry') { row = 8; col = 2; }
@@ -36,7 +92,7 @@ export function drawFrog(ctx, x, y, size, options = {}) {
     const stretch = expression === 'laugh' ? Math.sin(animationTime * 22) * .025 : 0;
     ctx.scale(1 + stretch, 1 - stretch);
     ctx.drawImage(sheet, col * 192, row * 208, 192, 208, -size * .7, -size * .88, size * 1.4, size * 1.52);
-  } else {
+  } else if (!animated) {
     // Lightweight fallback only used if the local image cannot load.
     const grad = ctx.createRadialGradient(-size * .15, -size * .2, 1, 0, 0, size * .65);
     grad.addColorStop(0, '#fff090'); grad.addColorStop(1, '#e8b94c');

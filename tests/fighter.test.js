@@ -197,7 +197,7 @@ test('fighter crouching and jumping: crouch ducks standing laugh shots, jumps ri
 });
 
 test('fighter rage: real punches earn a combo and unlock a powerful special once', () => {
-  const { game } = harness({ multiplayer: true });
+  const { game, sounds } = harness({ multiplayer: true });
   game.start(); tap(game, 'special');
   assert.equal(game.getState().players[0].attack, null);
   for (let i = 0; i < 7 && game.getState().players[0].rage < 100; i++) strikeAndRecover(game);
@@ -214,6 +214,8 @@ test('fighter rage: real punches earn a combo and unlock a powerful special once
   game.controlDown('special'); game.controlDown('special'); game.controlUp('special');
   advance(game, 1);
   assert.equal(game.getState().stats.specials[0], 1);
+  assert.equal(sounds.filter(sound => sound === 'laugh:special').length, 1);
+  assert.ok(sounds.includes('laugh:combo'));
 });
 
 test('fighter controls: both keyboard layouts work and pause cancellation releases all held movement and defense', () => {
@@ -337,4 +339,161 @@ test('fighter duel: player two can win two straight rounds using the same public
   assert.equal(results[0].winner, 2);
   assert.equal(results[0].won, false);
   assert.deepEqual(results[0].wins, [0, 2]);
+});
+
+test('fighter animation: continuous movement clocks, isolated transitions, and render-only frames have no side effects', () => {
+  const { game, sounds, frogs } = harness({ multiplayer: true });
+  game.start();
+  assert.equal(sounds.filter(sound => sound === 'laugh:start').length, 1);
+  advance(game, 0.1);
+  assert.equal(game.getState().players[0].animation.name, 'idle');
+  game.controlDown('right');
+  advance(game, 0.18);
+  const running = game.getState().players[0].animation;
+  assert.equal(running.name, 'run');
+  assert.ok(running.time > 0.12);
+  advance(game, 0.1);
+  assert.ok(Math.abs(game.getState().players[0].animation.time - running.time - 0.1) < 1e-8);
+
+  tap(game, 'heavy');
+  const transition = game.getState().players[0].animation;
+  assert.equal(transition.name, 'heavy');
+  assert.equal(transition.previous.name, 'run');
+  assert.equal(transition.time, 0);
+  transition.previous.name = 'corrupted';
+  assert.equal(game.getState().players[0].animation.previous.name, 'run');
+  const beforeRender = game.getState(), beforeSounds = [...sounds];
+  game.render(10); game.render(500);
+  assert.deepEqual(game.getState(), beforeRender, 'render cannot advance a fighter animation');
+  assert.deepEqual(sounds, beforeSounds, 'drawing must not trigger audio');
+  const sprite = frogs.filter(frog => frog.size > 70).at(-2);
+  assert.equal(sprite.pose.animation, 'heavy');
+  assert.equal(sprite.pose.animationFrom.name, 'run');
+  assert.equal(sprite.pose.animationProgress, 0);
+  assert.equal(sprite.pose.animationMix, 0);
+  assert.ok(Math.abs(sprite.y + sprite.size * 0.64 * sprite.pose.scaleY) < 1e-8, 'the sprite is aligned to its local foot anchor');
+  assert.ok(frogs.filter(frog => frog.size > 70).at(-1).pose.scaleX < 0, 'player two faces left');
+  game.cancelInput();
+  advance(game, 1);
+  assert.equal(game.getState().players[0].animation.name, 'idle');
+});
+
+test('fighter animation: light and heavy frame progress matches windup, contact and recovery without changing the move', () => {
+  for (const action of ['light', 'heavy']) {
+    const { game, sounds } = harness({ multiplayer: true });
+    game.start();
+    tap(game, action);
+    let a = game.getState().players[0].animation;
+    assert.equal(a.name, action);
+    assert.equal(a.phase, 'startup');
+    assert.equal(a.progress, 0);
+    advance(game, 0.05);
+    a = game.getState().players[0].animation;
+    assert.ok(a.progress > 0 && a.progress < 0.4);
+    assert.ok(a.blend > 0.999);
+    const active = until(game, state => state.players[0].animation.phase === 'active', 1);
+    a = active.players[0].animation;
+    assert.ok(a.progress >= 0.4 && a.progress < 0.65);
+    assert.ok(Math.abs(a.time - active.players[0].attack.age) < 1e-8);
+    const recovery = until(game, state => state.players[0].animation.phase === 'recovery', 1);
+    assert.ok(recovery.players[0].animation.progress >= 0.65);
+    until(game, state => !state.players[0].attack, 1);
+    assert.equal(game.getState().stats.whiffs[0], 1);
+    assert.ok(!sounds.includes('laugh:hurt'), 'an empty swing has no hurt laugh');
+    assert.equal(sounds.filter(sound => sound === 'laugh:attack').length, 1);
+    tap(game, action);
+    assert.equal(game.getState().players[0].animation.time, 0, 'a new punch starts at its first frame');
+    assert.equal(game.getState().players[0].animation.progress, 0);
+  }
+});
+
+test('fighter animation: contact selects hurt immediately and freezes both sprite clocks during hit-stop', () => {
+  const { game, sounds } = harness({ multiplayer: true });
+  game.start(); approach(game); tap(game, 'light');
+  const contact = until(game, state => state.hitStop > 0, 1);
+  assert.equal(contact.players[1].animation.name, 'hurt');
+  assert.equal(contact.players[1].animation.phase, 'impact');
+  assert.ok(contact.players[1].animation.blend >= 0.8, 'the hit reaction is visible on the impact frame');
+  assert.ok(sounds.includes('laugh:hurt'));
+  const clocks = contact.players.map(player => player.animation.time);
+  advance(game, 0.025);
+  assert.deepEqual(game.getState().players.map(player => player.animation.time), clocks);
+  until(game, state => state.hitStop === 0, 1);
+  advance(game, 0.025);
+  const resumed = game.getState();
+  assert.ok(resumed.players[1].animation.time > clocks[1]);
+  assert.notEqual(resumed.players[1].animation.offsetX, contact.players[1].animation.offsetX, 'recoil settles after the frozen contact frame');
+  until(game, state => state.players[1].animation.name === 'idle', 2);
+  assert.ok(Math.abs(game.getState().players[1].animation.scaleY - 1) < 0.04, 'hurt uses authored frames instead of prolonged vertical squashing');
+});
+
+test('fighter animation: guard, crouch, jump and landing share stable foot placement and pause clears held poses', () => {
+  const { game, sounds, frogs } = harness({ multiplayer: true });
+  game.start(); approach(game); game.controlDown('block', 1);
+  assert.equal(game.getState().players[1].animation.name, 'guard');
+  tap(game, 'light');
+  until(game, state => state.stats.blockedHits[0] === 1, 1);
+  assert.equal(game.getState().players[1].animation.state, 'guard-impact');
+  assert.ok(sounds.includes('laugh:guard'));
+  assert.ok(!sounds.includes('laugh:hurt'));
+  advance(game, 0.6);
+  assert.equal(game.getState().players[1].animation.state, 'guard');
+  game.cancelInput();
+  assert.notEqual(game.getState().players[1].animation.state, 'guard');
+  advance(game, 0.3);
+  game.controlDown('crouch'); advance(game, 0.2);
+  let a = game.getState().players[0].animation;
+  assert.equal(a.state, 'crouch');
+  assert.ok(a.scaleY < 0.85);
+  game.render(2);
+  const crouched = frogs.filter(frog => frog.size > 70).at(-2);
+  assert.ok(Math.abs(crouched.y + crouched.size * 0.64 * crouched.pose.scaleY) < 1e-8);
+  game.controlUp('crouch'); tap(game, 'jump');
+  assert.equal(game.getState().players[0].animation.name, 'dash');
+  assert.equal(game.getState().players[0].animation.phase, 'ascent');
+  until(game, state => state.players[0].animation.phase === 'descent', 1);
+  until(game, state => state.players[0].grounded, 1);
+  advance(game, 0.5);
+  a = game.getState().players[0].animation;
+  assert.equal(a.name, 'idle');
+  assert.equal(a.footY, game.getState().players[0].y);
+  assert.ok(Math.abs(a.scaleY - 1) < 0.02);
+});
+
+test('fighter animation: a real knockout starts winner laughter once and the next round resets animation state', () => {
+  const { game, sounds } = harness({ multiplayer: true });
+  game.start();
+  const finished = defeatPassivePlayer(game, 0);
+  assert.equal(finished.players[0].animation.name, 'laugh');
+  assert.equal(finished.players[0].animation.state, 'victory');
+  assert.equal(finished.players[1].animation.state, 'knockout');
+  assert.equal(sounds.filter(sound => sound === 'laugh:victory').length, 1);
+  advance(game, 0.5);
+  assert.ok(game.getState().players[0].animation.time >= 0.49);
+  game.render(1); game.render(2);
+  assert.equal(sounds.filter(sound => sound === 'laugh:victory').length, 1);
+  until(game, state => state.phase === 'fighting', 3);
+  assert.ok(game.getState().players.every(player => player.animation.name === 'idle' && player.animation.time === 0));
+  assert.equal(sounds.filter(sound => sound === 'laugh:start').length, 2);
+  game.start();
+  assert.ok(game.getState().players.every(player => player.animation.transitions === 0 && player.animation.previous === null));
+});
+
+test('fighter animation: the three charged specials use their own authored movement, punch or laughter frames', () => {
+  for (const [character, name] of [['belly', 'heavy'], ['speed', 'dash'], ['laugh', 'laugh']]) {
+    const { game, sounds } = harness({ multiplayer: true, character });
+    game.start();
+    for (let i = 0; i < 10 && game.getState().players[0].rage < 100; i++) strikeAndRecover(game);
+    assert.equal(game.getState().players[0].rage, 100);
+    tap(game, 'special');
+    const animation = game.getState().players[0].animation;
+    assert.equal(animation.name, name);
+    assert.equal(animation.state, 'special');
+    assert.equal(animation.phase, 'startup');
+    assert.equal(animation.progress, 0);
+    assert.equal(sounds.filter(sound => sound === 'laugh:special').length, 1);
+    const active = until(game, state => state.players[0].animation.phase === 'active', 1);
+    assert.equal(active.players[0].animation.name, name);
+    assert.ok(active.players[0].animation.progress >= 0.4);
+  }
 });

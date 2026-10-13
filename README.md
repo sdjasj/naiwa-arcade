@@ -34,6 +34,10 @@
 
 大乱斗和炸弹人可在玩法中选「双人（同键盘）」。大乱斗玩家 2 使用方向键跳蹲移动、数字 1/2/3 轻拳/重拳/防御、回车大招；炸弹人玩家 2 使用方向键和回车。双人是同一台设备上的本地对战，三局两胜。经典、无限、双人最高分各自保存，格斗角色选择也会保留。
 
+大乱斗与幸存者使用新增的 48 帧透明角色图集，覆盖呼吸、跑步、冲刺、大笑、轻拳、重击、受击与格挡。动作随游戏时钟播放，起手、发力和收招对应攻击阶段，转向及切换带短暂过渡；暂停、命中停顿与升级选择时按对应游戏状态冻结。笑声按出招、受伤、格挡、冲刺、连击、必杀、首领、升级和胜利等事件播放不同片段，具有冷却与优先级，始终最多一个笑声声源，声音开关可立即停止。
+
+生成提示词和原始 PNG 见 [output/imagegen/prompts.md](output/imagegen/prompts.md)。可用 `node scripts/prepare-frog-frames.mjs output/imagegen/naiwa-motion-v1.png output/imagegen/naiwa-combat-v1.png` 重新生成 WebP 和脚底锚点。
+
 ## 本地运行
 
 纯 HTML、CSS、原生 JavaScript 和 Canvas 2D，无前端运行时依赖或后端服务。所有游戏素材均随仓库保存。
@@ -77,11 +81,14 @@ styles.css              自适应布局
 js/app.js               游戏切换、输入、暂停、计分与帧循环
 js/controls.js          支持多点触控的方向与动作按钮
 js/frog.js              奶蛙帧动画、封面与翅膀
+js/frog-animation.js    动作帧采样与循环 / 单次动作时序
+js/frog-atlas.js        48 帧裁切边界与脚底锚点
 js/audio.js             本地笑声与交互音效
 js/games/               九款游戏的独立逻辑与渲染
 assets/                 本地图集、音频及来源说明
 tests/                  逻辑与浏览器验收测试
 scripts/build.mjs       静态发布目录生成
+output/imagegen/        生成帧源 PNG 与提示词（不发布到站点）
 ```
 
 ## 素材来源

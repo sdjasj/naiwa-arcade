@@ -8,7 +8,7 @@ import { createGame as createFighter } from './games/fighter.js';
 import { createGame as createSurvivor } from './games/survivor.js';
 import { createGame as createBomber } from './games/bomber.js';
 import { createTouchControls } from './controls.js';
-import { drawFrog, setFrogTime, frogReady, drawHero, drawCard } from './frog.js';
+import { drawFrog, setFrogTime, frogReady, frogAnimationStatus, drawHero, drawCard } from './frog.js';
 import { GameAudio } from './audio.js';
 
 const $ = id => document.getElementById(id);
@@ -319,5 +319,5 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 if (new URLSearchParams(location.search).has('debug')) {
-  Object.defineProperty(window, '__arcade', { value: { getState: (options = {}) => ({ id: activeId, state, score, soundEnabled, difficulty: difficulty[activeId], playMode: playModes[activeId], fighterCharacter, opponentCharacter, gridSize, selectedLevel, progress, game: game.getState(options) }) } });
+  Object.defineProperty(window, '__arcade', { value: { getState: (options = {}) => ({ id: activeId, state, score, soundEnabled, animations: frogAnimationStatus(), difficulty: difficulty[activeId], playMode: playModes[activeId], fighterCharacter, opponentCharacter, gridSize, selectedLevel, progress, game: game.getState(options) }) } });
 }

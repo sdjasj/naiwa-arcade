@@ -11,17 +11,17 @@ function seeded(seed, run) {
 }
 
 function harness(options = {}) {
-  const results = [], scores = [], sounds = new Set(), draws = [];
+  const results = [], scores = [], sounds = new Set(), soundEvents = [], draws = [];
   const noop = () => {};
   const ctx = new Proxy({ measureText: value => ({ width: String(value).length * 10 }) }, {
     get: (target, key) => key in target ? target[key] : noop,
     set: (target, key, value) => { target[key] = value; return true; },
   });
   const game = createGame({ ctx, width: 960, height: 560,
-    drawFrog: (...args) => draws.push(args), audio: { play: kind => sounds.add(kind) },
+    drawFrog: (...args) => draws.push(args), audio: { play: kind => { sounds.add(kind); soundEvents.push(kind); } },
     onScore: value => scores.push(value), onEnd: value => results.push(value), ...options,
   });
-  return { game, results, scores, sounds, draws };
+  return { game, results, scores, sounds, soundEvents, draws };
 }
 
 function advance(game, seconds) {
@@ -163,12 +163,14 @@ test('survivor: dash has invulnerability and cooldown; pause cancellation preven
 }));
 
 test('survivor: automatic attacks award experience; level choices freeze combat and unlock belly waves', () => seeded(7, () => {
-  const { game, scores } = harness(); game.start();
+  const { game, scores, soundEvents } = harness(); game.start();
   const first = until(game, state => state.phase === 'upgrading');
   assert.ok(first.elapsed > 5 && first.elapsed < 20);
   assert.ok(first.kills >= 8);
   assert.ok(first.stats.shots > 0);
   assert.equal(first.level, 2);
+  assert.equal(first.animation.name, 'laugh');
+  assert.equal(soundEvents.filter(kind => kind === 'laugh:upgrade').length, 1);
   assert.deepEqual(first.upgrades.map(item => item.id), ['belly', 'bottles', 'rapid']);
   assert.equal(scores.at(-1), first.score);
   const frozen = game.getState({ details: true });
@@ -184,6 +186,9 @@ test('survivor: automatic attacks award experience; level choices freeze combat 
   assert.equal(game.getState().phase, 'upgrading');
   assert.equal(game.keyDown({ key: '1' }), true);
   assert.equal(game.getState().phase, 'playing');
+  assert.equal(game.getState().animation.name, 'laugh');
+  assert.equal(game.getState().animation.time, 0);
+  assert.equal(soundEvents.filter(kind => kind === 'laugh:upgrade').length, 1, 'choosing does not replay the same upgrade voice');
   assert.equal(game.getState().weapons.belly, 1);
   assert.equal(game.getUpgrades().length, 0);
   assert.equal(game.chooseUpgrade(0), false);
@@ -227,6 +232,7 @@ test('survivor: damage grants recovery time; health depletion ends exactly once'
   const hit = until(game, state => state.stats.damageTaken > 0, 90, stationary);
   assert.ok(hit.player.hp < hit.player.maxHp);
   assert.equal(hit.player.invulnerable, true);
+  assert.equal(hit.animation.name, 'hurt');
   advance(game, 0.4);
   assert.equal(game.getState().player.hp, hit.player.hp, 'overlapping enemies cannot drain health every frame');
   const ended = until(game, state => state.phase === 'ended', 220, stationary);
@@ -234,14 +240,14 @@ test('survivor: damage grants recovery time; health depletion ends exactly once'
   assert.equal(results.length, 1);
   assert.equal(results[0].won, false);
   assert.equal(results[0].endless, false);
-  assert.ok(sounds.has('laugh'));
+  assert.ok(sounds.has('laugh:hurt'));
   advance(game, 10);
   assert.equal(results.length, 1);
   assert.equal(game.getState().elapsed, ended.elapsed);
 }));
 
 test('survivor: classic mode needs three minutes and the final boss; all enemy types appear', () => seeded(7, () => {
-  const { game, results, scores } = harness(); game.start();
+  const { game, results, scores, sounds, soundEvents } = harness(); game.start();
   const kinds = new Set(); let firstFinalAt;
   const state = until(game, value => value.phase === 'ended', 260, (g, value) => {
     value.enemies.forEach(enemy => kinds.add(enemy.kind));
@@ -261,7 +267,78 @@ test('survivor: classic mode needs three minutes and the final boss; all enemy t
   assert.equal(results.length, 1);
   assert.equal(results[0].won, true);
   assert.equal(scores.at(-1), state.score);
+  assert.equal(state.animation.name, 'laugh');
+  for (const event of ['start', 'dash', 'hurt', 'upgrade', 'boss', 'combo', 'victory', 'special']) {
+    assert.ok(sounds.has(`laugh:${event}`), `missing functional voice event: ${event}`);
+  }
+  assert.equal(soundEvents.filter(kind => kind === 'laugh:victory').length, 1);
+  assert.ok(soundEvents.filter(kind => kind.startsWith('laugh:')).length < state.stats.shots / 2, 'voices are tied to milestones rather than every bullet');
   game.render(state.elapsed);
+}));
+
+test('survivor: running stays continuous through auto fire, with eased turning and frozen paused frames', () => seeded(12, () => {
+  const { game, draws, soundEvents } = harness(); game.start();
+  advance(game, 0.2);
+  assert.equal(game.getState().animation.name, 'idle');
+  assert.ok(game.getState().animation.time > 0);
+  assert.notEqual(game.getState().animation.stretch, 0, 'idle breathing is driven by update');
+  game.controlDown('right');
+  let runTime = -1;
+  for (let i = 0; i < 75; i += 1) {
+    game.update(STEP);
+    const state = game.getState();
+    assert.equal(state.animation.name, 'run');
+    assert.ok(state.animation.time > runTime);
+    runTime = state.animation.time;
+  }
+  assert.ok(game.getState().stats.shots > 0);
+  assert.deepEqual(soundEvents.filter(kind => kind.startsWith('laugh:')), ['laugh:start']);
+  game.controlUp('right'); game.controlDown('left'); game.update(STEP);
+  let state = game.getState();
+  assert.equal(state.animation.targetFacing, -1);
+  assert.ok(state.animation.facing > -1 && state.animation.facing < 1, 'visible turn eases toward the new direction');
+  assert.ok(state.animation.time > runTime, 'turning does not restart the run cycle');
+  advance(game, 0.25);
+  assert.ok(game.getState().animation.facing < 0);
+  game.render(10);
+  const options = draws.at(-1)[4];
+  assert.equal(options.animation, 'run');
+  assert.ok(options.scaleX < 0, 'leftward movement mirrors the right-facing atlas');
+  state = game.getState();
+  const animationSnapshot = { ...state.animation };
+  state.animation.name = 'mutated';
+  game.render(999); game.render(1000);
+  assert.deepEqual(game.getState().animation, animationSnapshot);
+  assert.deepEqual(draws.at(-1)[4], options, 'render time cannot advance a paused actor');
+}));
+
+test('survivor: dash plays the whole one-shot with a short blend and recovery frame', () => seeded(2, () => {
+  const { game, draws, soundEvents } = harness(); game.start();
+  advance(game, 0.1);
+  game.controlDown('dash');
+  let state = game.getState();
+  assert.equal(state.animation.name, 'dash');
+  assert.equal(state.animation.progress, 0);
+  assert.equal(state.animation.from.name, 'idle');
+  state.animation.from.name = 'mutated';
+  assert.equal(game.getState().animation.from.name, 'idle');
+  game.update(STEP); game.render(4);
+  assert.ok(draws.at(-1)[4].animationMix > 0 && draws.at(-1)[4].animationMix < 1);
+  assert.equal(draws.at(-1)[4].animationFrom.name, 'idle');
+  advance(game, 0.1);
+  state = game.getState();
+  assert.ok(state.animation.progress > 0.4 && state.animation.progress < 0.6);
+  game.render(5); game.render(100);
+  assert.deepEqual(game.getState().animation, state.animation, 'pausing freezes a one-shot midway');
+  advance(game, 0.15); game.render(102);
+  state = game.getState();
+  assert.equal(state.dashTime, 0, 'visual recovery does not extend dash physics');
+  assert.equal(state.animation.name, 'dash');
+  assert.equal(state.animation.progress, 1, 'last atlas frame is visible before returning to locomotion');
+  assert.equal(draws.at(-1)[4].animationProgress, 1);
+  advance(game, 0.15);
+  assert.notEqual(game.getState().animation.name, 'dash');
+  assert.equal(soundEvents.filter(kind => kind === 'laugh:dash').length, 1);
 }));
 
 test('survivor: endless keeps growing beyond three minutes with bounded entities and three choices at max ranks', () => seeded(7, () => {

@@ -95,7 +95,7 @@ export function createGame(env) {
   }
   function settle() {
     if (!won && board.some(v => v >= 2048)) {
-      won = true; phase = 'won'; queued = null; save(); audio?.play('laugh'); audio?.play('win');
+      won = true; phase = 'won'; queued = null; save(); audio?.play('laugh:victory'); audio?.play('win');
       onEnd?.({ score, gridSize, title: '狂笑奶蛙，合成成功！', message: `${gridSize}×${gridSize} · 2048 达成！奶蛙笑到停不下来，继续冲击 4096 蛙王吧。`, won: true, canContinue: true });
     } else if (!canMove(board, gridSize) && !resultSent) {
       phase = 'ended'; resultSent = true; queued = null; onSave?.(null); audio?.play('laugh');
@@ -115,7 +115,7 @@ export function createGame(env) {
     if (next.score) {
       const max = Math.max(...next.merges.map(item => item.value));
       status(`${formFor(max).name} ${max} 登场！+${next.score} 分 · 已走 ${moves} 步`);
-      if (max >= 128) audio?.play('laugh');
+      if (max >= 128) audio?.play(max >= 512 ? 'laugh:upgrade' : 'laugh:combo');
     }
     return true;
   }
