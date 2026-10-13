@@ -26,7 +26,7 @@ test('invalid clocks and unsupported actions have a safe initial frame or fallba
   assert.equal(sampleFrogAnimation('missing'), null);
 });
 
-test('all 48 alpha crops stay in their cells and inside the compositing surface', () => {
+test('all 72 alpha crops stay in their cells and inside the compositing surface', () => {
   let count = 0;
   for (const atlas of Object.values(FROG_ATLASES)) atlas.frames.forEach((row, ri) => row.forEach((frame, ci) => {
     assert.ok(frame.x >= ci * 256 && frame.x + frame.width <= (ci + 1) * 256);
@@ -36,5 +36,5 @@ test('all 48 alpha crops stay in their cells and inside the compositing surface'
     assert.ok(y >= 0 && y + frame.height * scale <= 320);
     count++;
   }));
-  assert.equal(count, 48);
+  assert.equal(count, 72);
 });

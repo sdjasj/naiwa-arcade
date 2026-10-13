@@ -1,5 +1,5 @@
 const layouts = {
-  fighter: { directions: [['jump', '跳', '向上跳跃'], ['left', '←', '向左移动'], ['crouch', '蹲', '蹲下'], ['right', '→', '向右移动']], actions: [['light', '轻拳', 'J'], ['heavy', '重拳', 'K'], ['block', '防御', 'L'], ['special', '大招', '空格']] },
+  fighter: { directions: [['jump', '跳', '轻点小跳，按住普通跳'], ['left', '←', '向左移动，连点两次跑动或后撤'], ['crouch', '蹲', '蹲下，蹲后起跳为高跳'], ['right', '→', '向右移动，连点两次跑动或后撤']], actions: [['light', '轻拳', 'J · A'], ['lightKick', '轻脚', 'U · B'], ['block', '防御', 'L'], ['heavy', '重拳', 'K · C'], ['heavyKick', '重脚', 'I · D'], ['roll', '翻滚', 'O · A+B'], ['throw', '投技', 'H'], ['max', '爆气', 'N · MAX'], ['special', '超必杀', '空格']] },
   survivor: { directions: [['up', '↑', '向上移动'], ['left', '←', '向左移动'], ['down', '↓', '向下移动'], ['right', '→', '向右移动']], actions: [['dash', '冲刺', '空格']] },
   bomber: { directions: [['up', '↑', '向上移动'], ['left', '←', '向左移动'], ['down', '↓', '向下移动'], ['right', '→', '向右移动']], actions: [['bomb', '放炸弹', '空格']] },
 };
@@ -53,6 +53,7 @@ export function createTouchControls(element, { down, up, focus }) {
     clear,
     configure(id) {
       clear(); element.replaceChildren(); element.hidden = !layouts[id];
+      element.classList.toggle('fighter-controls', id === 'fighter');
       if (!layouts[id]) return;
       const directions = document.createElement('div'), actions = document.createElement('div');
       directions.className = 'action-dpad'; actions.className = 'action-buttons';

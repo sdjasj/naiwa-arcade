@@ -25,7 +25,7 @@ test('new game cards, controls, mode choices and nine-game numbering agree', asy
     await expect(page.locator('#game-number')).toHaveText(`0${index + 7} / 09`);
     await expect(page.locator('#action-controls')).toBeVisible();
     for (const button of await page.locator('#action-controls button').all()) await expect(button).toBeDisabled();
-    await expect(page.locator('#play-mode-select option')).toHaveCount(id === 'survivor' ? 2 : 3);
+    await expect(page.locator('#play-mode-select option')).toHaveCount(id === 'survivor' ? 2 : id === 'fighter' ? 4 : 3);
     await expect(page.locator('#fighter-setting')).toBeVisible({ visible: id === 'fighter' });
     await start(page);
     for (const button of await page.locator('#action-controls button').all()) await expect(button).toBeEnabled();

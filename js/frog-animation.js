@@ -9,6 +9,12 @@ export const FROG_CLIPS = Object.freeze({
   heavy: Object.freeze({ atlas: 'combat', row: 1, fps: 10, loop: false }),
   hurt: Object.freeze({ atlas: 'combat', row: 2, fps: 15, loop: false }),
   guard: Object.freeze({ atlas: 'combat', row: 3, fps: 14, loop: false }),
+  walk: Object.freeze({ atlas: 'motion', row: 1, fps: 6, loop: true }),
+  backwalk: Object.freeze({ atlas: 'footwork', row: 0, fps: 9, loop: true }),
+  jump: Object.freeze({ atlas: 'footwork', row: 1, fps: 10, loop: false }),
+  airLight: Object.freeze({ atlas: 'footwork', row: 2, fps: 15, loop: false }),
+  airHeavy: Object.freeze({ atlas: 'footwork', row: 3, fps: 12, loop: false }),
+  kick: Object.freeze({ atlas: 'footwork', row: 3, fps: 12, loop: false }),
 });
 
 export function sampleFrogAnimation(name, time = 0, progress) {

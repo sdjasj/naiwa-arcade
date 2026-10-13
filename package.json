@@ -1,6 +1,6 @@
 {
   "name": "naiwa-arcade",
-  "version": "3.1.0",
+  "version": "4.0.0",
   "description": "大笑奶蛙摸鱼乐园：九款网页小游戏，格斗、幸存者、炸弹人、无限模式与奶蛙 2048",
   "scripts": {
     "dev": "python3 -m http.server 8080 --bind 127.0.0.1",

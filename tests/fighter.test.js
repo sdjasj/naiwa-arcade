@@ -45,6 +45,14 @@ function tap(game, action, player = 0) {
   game.controlUp(action, player);
 }
 
+function quarterCircle(game, attack = 'light', player = 0) {
+  const forward = game.getState().players[player].facing > 0 ? 'right' : 'left';
+  game.controlDown('crouch', player); advance(game, .04);
+  game.controlDown(forward, player); advance(game, .04);
+  game.controlUp('crouch', player); advance(game, .04);
+  tap(game, attack, player); game.controlUp(forward, player);
+}
+
 function approach(game, player = 0, range = 80) {
   for (let i = 0; i < 4 * 120; i++) {
     const state = game.getState(), a = state.players[player], b = state.players[1 - player];
@@ -58,6 +66,7 @@ function approach(game, player = 0, range = 80) {
 function strikeAndRecover(game, action = 'light', player = 0) {
   approach(game, player);
   tap(game, action, player);
+  until(game, state => state.phase !== 'fighting' || state.players[player].attack, 1);
   return until(game, state => state.phase !== 'fighting' || !state.players[player].attack, 3);
 }
 
@@ -125,15 +134,19 @@ test('fighter lifecycle: authentic sprite preview, default classic, fresh starts
   assert.equal(game.getState().phase, 'idle');
 });
 
-test('fighter characters: belly has more health, speed moves and punches faster, laugh has ranged heavy attacks', () => {
+test('fighter characters: belly has more health, speed moves and punches faster, laugh reserves projectiles for command moves', () => {
   const games = Object.keys(CHARACTERS).map(character => harness({ character, multiplayer: true }).game);
   for (const game of games) { game.start(); game.controlDown('right'); advance(game, 0.3); game.controlUp('right'); }
   const [belly, speed, laugh] = games.map(game => game.getState());
   assert.ok(belly.players[0].maxHp > speed.players[0].maxHp);
   assert.ok(speed.players[0].x > belly.players[0].x && speed.players[0].x > laugh.players[0].x);
   tap(games[0], 'light'); tap(games[1], 'light');
+  games[0].update(1 / 120); games[1].update(1 / 120);
   assert.ok(games[1].getState().players[0].attack.startup < games[0].getState().players[0].attack.startup);
   tap(games[2], 'heavy');
+  advance(games[2], .8);
+  assert.equal(games[2].getState().projectiles.length, 0, 'a heavy punch is a normal close-range attack');
+  quarterCircle(games[2]);
   until(games[2], state => state.projectiles.length > 0, 1);
   assert.equal(games[2].getState().projectiles[0].owner, 0);
 });
@@ -160,20 +173,21 @@ test('fighter contact: empty swings miss, light punches squash and knock back, h
   assert.ok(damages[1] > damages[0]);
 });
 
-test('fighter guarding: block reduces damage, heavy pressure eventually breaks guard, hits generate rage', () => {
+test('fighter guarding: normals deal zero chip, heavy pressure eventually breaks guard, blocked hits generate meter', () => {
   const { game } = harness({ multiplayer: true });
   game.start(); approach(game); game.controlDown('block', 1);
   strikeAndRecover(game, 'heavy');
   const blocked = game.getState();
   assert.equal(blocked.stats.blockedHits[0], 1);
   assert.equal(blocked.stats.hits[0], 0);
-  assert.ok(blocked.players[1].hp > blocked.players[1].maxHp - 10);
+  assert.equal(blocked.players[1].hp, blocked.players[1].maxHp);
   assert.ok(blocked.players[0].rage > 0 && blocked.players[1].rage > 0);
   strikeAndRecover(game, 'heavy');
   strikeAndRecover(game, 'heavy');
+  strikeAndRecover(game, 'heavy');
   const broken = game.getState();
-  assert.equal(broken.stats.blockedHits[0], 2);
-  assert.equal(broken.stats.hits[0], 1, 'the third heavy cracks a held guard');
+  assert.equal(broken.stats.blockedHits[0], 3);
+  assert.equal(broken.stats.hits[0], 1, 'the fourth heavy cracks a held guard');
   assert.ok(broken.players[1].hp < blocked.players[1].hp - 20);
 });
 
@@ -182,40 +196,105 @@ test('fighter crouching and jumping: crouch ducks standing laugh shots, jumps ri
     const { game } = harness({ multiplayer: true, character: 'laugh' });
     game.start();
     if (crouch) game.controlDown('crouch', 1);
-    tap(game, 'heavy'); advance(game, 2);
+    quarterCircle(game); advance(game, 2);
     const target = game.getState().players[1];
     if (crouch) assert.equal(target.hp, target.maxHp);
     else assert.ok(target.hp < target.maxHp);
   }
   const { game } = harness({ multiplayer: true });
   game.start(); const floor = game.getState().players[0].y;
-  tap(game, 'jump'); advance(game, 0.25);
+  game.controlDown('jump'); advance(game, 0.2); game.controlUp('jump'); advance(game, .05);
   assert.ok(game.getState().players[0].y < floor - 85);
   assert.equal(game.getState().players[0].grounded, false);
   until(game, state => state.players[0].grounded, 2);
   assert.equal(game.getState().players[0].y, floor);
 });
 
-test('fighter rage: real punches earn a combo and unlock a powerful special once', () => {
+test('fighter meter: real punches earn a stock, separated hits are not a combo, and a super spends one stock', () => {
   const { game, sounds } = harness({ multiplayer: true });
   game.start(); tap(game, 'special');
   assert.equal(game.getState().players[0].attack, null);
   for (let i = 0; i < 7 && game.getState().players[0].rage < 100; i++) strikeAndRecover(game);
   const charged = game.getState();
   assert.equal(charged.players[0].rage, 100);
-  assert.ok(charged.stats.bestCombo[0] >= 2);
+  assert.equal(charged.players[0].stocks, 1);
+  assert.equal(charged.stats.bestCombo[0], 1, 'waiting through full recovery gives the opponent time to act');
   approach(game); const before = game.getState().players[1].hp;
   tap(game, 'special');
   assert.equal(game.getState().players[0].attack.type, 'special');
   const hit = until(game, state => state.players[1].hp < before, 2);
   assert.ok(before - hit.players[1].hp >= 40);
   assert.equal(hit.stats.specials[0], 1);
-  assert.ok(hit.players[0].rage < 5);
+  assert.equal(hit.players[0].stocks, 0);
+  assert.ok(hit.players[0].meter < 100);
   game.controlDown('special'); game.controlDown('special'); game.controlUp('special');
   advance(game, 1);
   assert.equal(game.getState().stats.specials[0], 1);
   assert.equal(sounds.filter(sound => sound === 'laugh:special').length, 1);
-  assert.ok(sounds.includes('laugh:combo'));
+  assert.ok(!sounds.includes('laugh:combo'), 'isolated pokes do not announce a combo');
+});
+
+test('fighter meter: empty command moves grant the same energy for melee and projectile characters', () => {
+  for (const character of ['belly', 'laugh']) {
+    const { game } = harness({ multiplayer: true, character });
+    game.start(); game.controlDown('crouch', 1);
+    quarterCircle(game); advance(game, 2);
+    const state = game.getState();
+    assert.equal(state.stats.hits[0], 0);
+    assert.equal(state.stats.whiffs[0], 1, character);
+    assert.equal(state.players[0].meter, 2, character);
+    assert.equal(state.projectiles.length, 0);
+  }
+});
+
+test('fighter meter: three stocks are a real cap, without a hidden fourth stock refilling after MAX', () => {
+  const { game } = harness({ multiplayer: true });
+  game.start();
+  for (let index = 0; index < 160; index++) {
+    tap(game, 'light');
+    until(game, state => state.players[0].attack, 1);
+    until(game, state => !state.players[0].attack, 1);
+  }
+  const full = game.getState();
+  assert.equal(full.phase, 'fighting');
+  assert.equal(full.players[0].stocks, 3);
+  assert.equal(full.players[0].meter, 0);
+  assert.equal(full.stats.whiffs[0], 160);
+  tap(game, 'max'); game.update(1 / 120);
+  assert.equal(game.getState().players[0].stocks, 2);
+  assert.equal(game.getState().players[0].meter, 0);
+  assert.ok(game.getState().players[0].maxTime > 0);
+});
+
+test('fighter throws: a connected throw must recover and cannot cancel into a buffered super', () => {
+  const { game } = harness({ multiplayer: true, training: true });
+  game.start(); approach(game); tap(game, 'throw');
+  until(game, state => state.stats.throws[0] === 1, 1);
+  assert.equal(game.getState().players[0].attack.contact, 'hit');
+  tap(game, 'special');
+  assert.equal(game.getState().players[0].attack.type, 'throw');
+  assert.equal(game.getState().stats.cancels[0], 0);
+  advance(game, .2);
+  assert.equal(game.getState().players[0].attack.type, 'throw', 'the throw still has recovery after the command buffer expires');
+  until(game, state => !state.players[0].attack, 1);
+  assert.equal(game.getState().stats.specials[0], 0, 'expired buffered super never appears later');
+  tap(game, 'special');
+  assert.equal(game.getState().players[0].attack.type, 'special');
+  assert.equal(game.getState().stats.cancels[0], 0);
+});
+
+test('fighter rolls: a hit during roll startup interrupts it instead of carrying the defender into invulnerability', () => {
+  const { game } = harness({ multiplayer: true, training: true });
+  game.start(); approach(game); tap(game, 'light');
+  until(game, state => state.players[0].attack?.age >= state.players[0].attack?.startup - .02, 1);
+  tap(game, 'roll', 1);
+  assert.ok(game.getState().players[1].rollTime > .5);
+  const contact = until(game, state => state.stats.hits[0] === 1, 1);
+  assert.ok(contact.players[1].hurtTime > 0);
+  assert.equal(contact.players[1].rollTime, 0);
+  until(game, state => state.hitStop === 0, 1); game.update(1 / 120);
+  assert.equal(game.getState().players[1].movement, 'stunned');
+  assert.equal(game.getState().players[1].rollTime, 0);
 });
 
 test('fighter controls: both keyboard layouts work and pause cancellation releases all held movement and defense', () => {
@@ -238,6 +317,7 @@ test('fighter controls: both keyboard layouts work and pause cancellation releas
   game.keyDown({ code: 'Digit1', repeat: true });
   assert.equal(game.getState().players[1].attack, null);
   game.keyDown({ code: 'Digit1' });
+  game.update(1 / 120);
   assert.equal(game.getState().players[1].attack.type, 'light');
   game.keyUp({ code: 'Digit1' });
   game.controlDown('right'); game.pointerUp({ cancelled: true });
@@ -356,10 +436,11 @@ test('fighter animation: continuous movement clocks, isolated transitions, and r
   assert.ok(Math.abs(game.getState().players[0].animation.time - running.time - 0.1) < 1e-8);
 
   tap(game, 'heavy');
+  game.update(1 / 120);
   const transition = game.getState().players[0].animation;
   assert.equal(transition.name, 'heavy');
   assert.equal(transition.previous.name, 'run');
-  assert.equal(transition.time, 0);
+  assert.ok(transition.time > 0 && transition.time <= 1 / 120);
   transition.previous.name = 'corrupted';
   assert.equal(game.getState().players[0].animation.previous.name, 'run');
   const beforeRender = game.getState(), beforeSounds = [...sounds];
@@ -369,8 +450,8 @@ test('fighter animation: continuous movement clocks, isolated transitions, and r
   const sprite = frogs.filter(frog => frog.size > 70).at(-2);
   assert.equal(sprite.pose.animation, 'heavy');
   assert.equal(sprite.pose.animationFrom.name, 'run');
-  assert.equal(sprite.pose.animationProgress, 0);
-  assert.equal(sprite.pose.animationMix, 0);
+  assert.equal(sprite.pose.animationProgress, transition.progress);
+  assert.equal(sprite.pose.animationMix, transition.blend);
   assert.ok(Math.abs(sprite.y + sprite.size * 0.64 * sprite.pose.scaleY) < 1e-8, 'the sprite is aligned to its local foot anchor');
   assert.ok(frogs.filter(frog => frog.size > 70).at(-1).pose.scaleX < 0, 'player two faces left');
   game.cancelInput();
@@ -383,10 +464,11 @@ test('fighter animation: light and heavy frame progress matches windup, contact 
     const { game, sounds } = harness({ multiplayer: true });
     game.start();
     tap(game, action);
+    game.update(1 / 120);
     let a = game.getState().players[0].animation;
     assert.equal(a.name, action);
     assert.equal(a.phase, 'startup');
-    assert.equal(a.progress, 0);
+    assert.ok(a.progress > 0 && a.progress < .05, 'the buffered attack begins in its first startup frame');
     advance(game, 0.05);
     a = game.getState().players[0].animation;
     assert.ok(a.progress > 0 && a.progress < 0.4);
@@ -402,8 +484,9 @@ test('fighter animation: light and heavy frame progress matches windup, contact 
     assert.ok(!sounds.includes('laugh:hurt'), 'an empty swing has no hurt laugh');
     assert.equal(sounds.filter(sound => sound === 'laugh:attack').length, 1);
     tap(game, action);
-    assert.equal(game.getState().players[0].animation.time, 0, 'a new punch starts at its first frame');
-    assert.equal(game.getState().players[0].animation.progress, 0);
+    game.update(1 / 120);
+    assert.ok(game.getState().players[0].animation.time <= 1 / 120, 'a new punch starts at its first simulation frame');
+    assert.ok(game.getState().players[0].animation.progress < .05);
   }
 });
 
@@ -449,7 +532,7 @@ test('fighter animation: guard, crouch, jump and landing share stable foot place
   const crouched = frogs.filter(frog => frog.size > 70).at(-2);
   assert.ok(Math.abs(crouched.y + crouched.size * 0.64 * crouched.pose.scaleY) < 1e-8);
   game.controlUp('crouch'); tap(game, 'jump');
-  assert.equal(game.getState().players[0].animation.name, 'dash');
+  assert.equal(game.getState().players[0].animation.name, 'jump');
   assert.equal(game.getState().players[0].animation.phase, 'ascent');
   until(game, state => state.players[0].animation.phase === 'descent', 1);
   until(game, state => state.players[0].grounded, 1);
@@ -485,6 +568,10 @@ test('fighter animation: the three charged specials use their own authored movem
     game.start();
     for (let i = 0; i < 10 && game.getState().players[0].rage < 100; i++) strikeAndRecover(game);
     assert.equal(game.getState().players[0].rage, 100);
+    const backward = game.getState().players[0].facing > 0 ? 'left' : 'right';
+    game.controlDown(backward);
+    until(game, state => Math.abs(state.players[0].x - state.players[1].x) > 250, 3);
+    game.controlUp(backward); advance(game, .2);
     tap(game, 'special');
     const animation = game.getState().players[0].animation;
     assert.equal(animation.name, name);

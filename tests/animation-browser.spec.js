@@ -14,7 +14,7 @@ const test = base.extend({
       // Track an atlas through the offscreen compositor into the visible game
       // canvas. Merely requesting an image is not proof that a game uses it.
       const provenance = new WeakMap();
-      const trace = { atlasDraws: { motion: 0, combat: 0 }, gameDraws: { motion: 0, combat: 0 }, gameFrames: { motion: [], combat: [] }, invalidCrops: [] };
+      const trace = { atlasDraws: { motion: 0, combat: 0, footwork: 0 }, gameDraws: { motion: 0, combat: 0, footwork: 0 }, gameFrames: { motion: [], combat: [], footwork: [] }, invalidCrops: [] };
       Object.defineProperty(window, '__frogDrawTrace', { value: trace });
       const originalDraw = CanvasRenderingContext2D.prototype.drawImage;
       const originalClear = CanvasRenderingContext2D.prototype.clearRect;
@@ -26,7 +26,7 @@ const test = base.extend({
         const result = originalDraw.call(this, source, ...args);
         const url = source instanceof HTMLImageElement ? source.currentSrc || source.src : '';
         const atlas = /\/assets\/animation\/naiwa-motion-/.test(url) ? 'motion'
-          : /\/assets\/animation\/naiwa-combat-/.test(url) ? 'combat' : null;
+          : /\/assets\/animation\/naiwa-combat-/.test(url) ? 'combat' : /\/assets\/animation\/naiwa-footwork-/.test(url) ? 'footwork' : null;
         let incoming = provenance.get(source);
         if (atlas) {
           const crop = args.length === 8 ? args.slice(0, 4) : [0, 0, source.naturalWidth, source.naturalHeight];
@@ -62,7 +62,7 @@ const traceOf = page => page.evaluate(() => window.__frogDrawTrace);
 
 async function open(page) {
   await page.goto('./?debug', { waitUntil: 'networkidle' });
-  await expect.poll(async () => (await current(page)).animations).toEqual({ motion: true, combat: true });
+  await expect.poll(async () => (await current(page)).animations).toEqual({ motion: true, combat: true, footwork: true });
 }
 
 async function select(page, id) {
@@ -82,7 +82,7 @@ const canvasHash = page => page.locator('#game-canvas').evaluate(canvas => {
   return hash >>> 0;
 });
 
-test('both transparent atlases decode and all 48 authored frames render distinct, bounded pixels', async ({ page }) => {
+test('three transparent atlases decode and all 72 authored frames render distinct, bounded pixels', async ({ page }) => {
   await open(page);
   const result = await page.evaluate(async () => {
     const { FROG_ATLASES } = await import('./js/frog-atlas.js');
@@ -131,8 +131,8 @@ test('both transparent atlases decode and all 48 authored frames render distinct
     }
     return { status: frogAnimationStatus(), atlases, clips };
   });
-  expect(result.status).toEqual({ motion: true, combat: true });
-  expect(result.atlases).toHaveLength(2);
+  expect(result.status).toEqual({ motion: true, combat: true, footwork: true });
+  expect(result.atlases).toHaveLength(3);
   let total = 0;
   for (const atlas of result.atlases) {
     expect([atlas.width, atlas.height]).toEqual([1536, 1024]);
@@ -152,8 +152,8 @@ test('both transparent atlases decode and all 48 authored frames render distinct
       total += 1;
     }
   }
-  expect(total).toBe(48);
-  expect(result.clips).toHaveLength(8);
+  expect(total).toBe(72);
+  expect(result.clips).toHaveLength(14);
   for (const clip of result.clips) {
     expect(new Set(clip.frames.map(frame => frame.hash)).size, `${clip.name} should render six different authored frames`).toBe(6);
     for (const frame of clip.frames) {
@@ -165,6 +165,7 @@ test('both transparent atlases decode and all 48 authored frames render distinct
   const trace = await traceOf(page);
   expect(trace.atlasDraws.motion).toBeGreaterThanOrEqual(24);
   expect(trace.atlasDraws.combat).toBeGreaterThanOrEqual(24);
+  expect(trace.atlasDraws.footwork).toBeGreaterThanOrEqual(24);
   expect(trace.invalidCrops).toEqual([]);
 });
 
@@ -187,7 +188,7 @@ test('a missing motion atlas keeps the legacy pose visible and cannot fade out a
     const transition = pixels({ animation: 'light', animationProgress: .6, animationFrom: { name: 'idle', time: .1 }, animationMix: 0 });
     return { status: frogAnimationStatus(), idleVisible: idle.some((p, i) => i % 4 === 3 && p > 100), attackVisible: attack.some((p, i) => i % 4 === 3 && p > 100), unchanged: attack.every((p, i) => p === transition[i]) };
   });
-  expect(result.status).toEqual({ motion: false, combat: true });
+  expect(result.status).toEqual({ motion: false, combat: true, footwork: true });
   expect(result.idleVisible).toBe(true);
   expect(result.attackVisible).toBe(true);
   expect(result.unchanged).toBe(true);
