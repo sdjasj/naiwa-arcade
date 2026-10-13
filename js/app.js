@@ -10,6 +10,9 @@ import { createGame as createBomber } from './games/bomber.js';
 import { createTouchControls } from './controls.js';
 import { drawFrog, setFrogTime, frogReady, frogAnimationStatus, drawHero, drawCard } from './frog.js';
 import { GameAudio } from './audio.js';
+import { createLeaderboardClient } from './leaderboard-client.js';
+import { createLeaderboardUI } from './leaderboard-ui.js';
+import { parseBoard } from './leaderboard-rules.js';
 
 const $ = id => document.getElementById(id);
 const definitions = {
@@ -71,6 +74,12 @@ const canvas = $('game-canvas'), ctx = canvas.getContext('2d');
 let activeId = 'flappy', game = null, state = 'ready', score = 0, gameTime = 0, lastResult = null;
 let lastFrame = 0, accumulator = 0, activePointer = null;
 let size = { width: 960, height: 560 };
+let leaderboardRun = null, loadedMergeSave = null;
+const leaderboardClient = createLeaderboardClient();
+const leaderboardContext = () => ({ game: activeId, mode: activeId === 'merge' ? 'classic' : playModes[activeId],
+  difficulty: difficulty[activeId] || 'normal', gridSize, startLevel: selectedLevel, character: fighterCharacter });
+const leaderboardUI = createLeaderboardUI({ client: leaderboardClient,
+  getContext: () => parseBoard(leaderboardRun?.board) || leaderboardContext(), onOpen: () => pause() });
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const bestKey = id => `naiwa:best:${id}${difficulty[id] && difficulty[id] !== 'normal' ? `:${difficulty[id]}` : ''}${isEndless(id) ? ':endless' : isDuel(id) ? ':duel' : ''}${id === 'merge' && gridSize === 6 ? ':6' : ''}`;
 const bestFor = id => { const value = Number(read(bestKey(id), 0)); return Number.isFinite(value) ? Math.max(0, value) : 0; };
@@ -186,6 +195,15 @@ function endGame(result) {
   if (activeId === 'angry' && !isEndless(activeId) && result.level) selectedLevel = result.level;
   $('pause-button').disabled = true; showOverlay('ended', result);
   if (activeId === 'angry') renderLevels();
+  const finishedRun = leaderboardRun;
+  if (finishedRun) {
+    $('leaderboard-result').hidden = false;
+    $('leaderboard-result-message').textContent = '正在记录本局成绩…';
+    void leaderboardClient.recordResult(finishedRun, result.score).then(outcome => {
+      leaderboardUI.notifyResult(outcome);
+      if (lastResult === result && state === 'ended') $('leaderboard-result-message').textContent = outcome.message;
+    }).catch(() => { if (lastResult === result && state === 'ended') $('leaderboard-result-message').textContent = '成绩暂未上传，打开排行榜可重试。'; });
+  }
 }
 function clearInput() {
   touchControls.clear();
@@ -205,6 +223,7 @@ function selectGame(id, scroll = false, levelOverride) {
   if (!definitions[id]) return;
   audio.stopAll(); clearInput(); game?.destroy(); game = null;
   activeId = id; state = 'ready'; gameTime = 0; accumulator = 0; lastResult = null;
+  leaderboardRun = null; $('leaderboard-result').hidden = true;
   if (id === 'angry') { progress = loadProgress(); selectedLevel = Math.max(1, Math.min(progress.unlocked, levelOverride || progress.unlocked)); }
   const data = gameData(id);
   size = id === 'merge' ? { width: 560, height: 640 } : { width: 960, height: 560 };
@@ -234,14 +253,16 @@ function selectGame(id, scroll = false, levelOverride) {
   canvas.setAttribute('aria-label', `${data.name}游戏区域。${data.message}`);
   document.querySelectorAll('[data-game]').forEach(button => { const selected = button.dataset.game === id; button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected)); });
   const saveKey = mergeSaveKey();
+  loadedMergeSave = id === 'merge' ? readJSON(saveKey, null) : null;
   game = data.factory({
     canvas, ctx, ...size, drawFrog, audio, difficulty: difficulty[id] || 'normal', progress, endless: isEndless(id), multiplayer: isDuel(id), training: isTraining(id), character: fighterCharacter, opponentCharacter: isDuel(id) || isTraining(id) ? opponentCharacter : undefined, gridSize,
-    savedGame: id === 'merge' ? readJSON(saveKey, null) : null,
+    savedGame: loadedMergeSave,
     onScore: setScore,
     onStatus: text => { $('game-status').textContent = text; if (activeId === 'angry' && game) renderLevels(); },
     onEnd: endGame,
     onProgress: value => { if (isEndless(id)) return; progress = value; write('naiwa:progress:angry', JSON.stringify(value)); renderLevels(); },
-    onSave: value => { if (id === 'merge') write(saveKey, value === null ? null : JSON.stringify(value)); },
+    onSave: value => { if (id === 'merge') write(saveKey, value === null ? null : JSON.stringify({ ...value,
+      ...(leaderboardRun?.runId ? { leaderboardRun: leaderboardRun.runId } : {}) })); },
   });
   touchControls.setEnabled(false); touchControls.configure(id); refreshActionControls();
   setScore(0); refreshBest(); renderLevels(); showOverlay('ready');
@@ -251,6 +272,12 @@ function startGame({ restart = false } = {}) {
   audio.unlock(); audio.stopAll(); clearInput();
   const oldState = state;
   if (restart && activeId === 'angry' && !isEndless(activeId) && oldState !== 'ready') selectedLevel = game.getState().level;
+  const continuing = !restart && oldState === 'ended' && lastResult?.canContinue;
+  if (!continuing && (restart || oldState !== 'paused')) {
+    const saved = activeId === 'merge' && !restart && oldState === 'ready' ? loadedMergeSave : null;
+    leaderboardRun = leaderboardClient.beginRun(leaderboardContext(), { resume: activeId === 'merge' && validSave(saved, gridSize), runId: saved?.leaderboardRun });
+  }
+  $('leaderboard-result').hidden = true;
   state = 'playing';
   if (!restart && oldState === 'ended' && lastResult?.canContinue) game.continueGame();
   else if (restart || oldState !== 'paused') { gameTime = 0; game.start({ level: activeId === 'angry' && !isEndless(activeId) ? selectedLevel : 1, fresh: restart || oldState === 'ended', difficulty: difficulty[activeId] || 'normal', endless: isEndless(activeId), multiplayer: isDuel(activeId), training: isTraining(activeId), character: fighterCharacter, opponentCharacter: isDuel(activeId) || isTraining(activeId) ? opponentCharacter : undefined }); }
@@ -311,6 +338,8 @@ $('training-boxes').addEventListener('change', () => canvas.focus({ preventScrol
 $('training-reset').addEventListener('click', () => { if (isTraining(activeId)) startGame({ restart: true }); });
 $('board-size-select').addEventListener('change', event => { gridSize = event.target.value === '6' ? 6 : 4; write('naiwa:board:merge', gridSize); selectGame('merge'); });
 $('start-button').addEventListener('click', () => startGame());
+$('leaderboard-button').addEventListener('click', () => leaderboardUI.open());
+$('leaderboard-result-open').addEventListener('click', () => leaderboardUI.open());
 $('pause-button').addEventListener('click', () => state === 'paused' ? startGame() : pause());
 $('restart-button').addEventListener('click', () => startGame({ restart: true }));
 $('sound-toggle').addEventListener('click', () => { soundEnabled = !soundEnabled; write('naiwa:sound', soundEnabled ? 'on' : 'off'); audio.setEnabled(soundEnabled); if (soundEnabled) { audio.unlock(); audio.play('pop'); } setSoundUI(); });
@@ -320,7 +349,7 @@ document.querySelectorAll('[data-direction]').forEach(button => button.addEventL
 }));
 $('undo-button').addEventListener('click', () => {
   if (activeId !== 'merge' || !['playing', 'ended'].includes(state)) return;
-  if (game.undo()) { state = 'playing'; lastResult = null; $('game-overlay').hidden = true; $('pause-button').disabled = false; $('pause-button').textContent = 'Ⅱ'; refreshPuzzleControls(); canvas.focus({ preventScroll: true }); }
+  if (game.undo()) { state = 'playing'; lastResult = null; $('leaderboard-result').hidden = true; $('game-overlay').hidden = true; $('pause-button').disabled = false; $('pause-button').textContent = 'Ⅱ'; refreshPuzzleControls(); canvas.focus({ preventScroll: true }); }
 });
 let toastTimer;
 function toast(message) { clearTimeout(toastTimer); $('toast').textContent = message; $('toast').hidden = false; toastTimer = setTimeout(() => { $('toast').hidden = true; }, 3500); }

@@ -2,6 +2,8 @@
 
 九款以互联网「大笑奶蛙」为主角的浏览器小游戏。角色采用黄色梨形身体、奶油大肚皮、绿眼小黑瞳的奶蛙动画图集，搭配对应笑声音频。
 
+v5.0.0 新增全球排行榜：九款游戏共 41 个分榜，展示全球前 50 名、参与人数和自己的全榜名次。
+
 **在线游玩：<https://sdjasj.github.io/naiwa-arcade/>**
 
 | 游戏 | 玩法 | 操作 |
@@ -40,9 +42,25 @@
 
 大乱斗以《拳皇 98》ADVANCED 为参考：独立后退步法、四种跳跃、空中攻击保留惯性、上下段防御、双击方向跑动 / 撤步、翻滚、投技、受身、搓招与取消、三颗能量豆和 MAX。每回合 99 秒，练习室可选木桩防御、查看判定框和输入记录，不计成绩。具体按键、招式、规则及参考来源见 [格斗说明](docs/fighter98.md)。招式数值、帧表、CPU 和奶蛙角色采用本作设计，不宣称原作逐帧一致。
 
+## 全球排行榜
+
+点击「全球排行榜」可以按游戏与玩法切换榜单。成绩来自共享服务，每位玩家在同一分榜只占一个最佳成绩位置；同分按服务端首次收到该分数的时间排序。自己的成绩即使在前 50 名之外，也能查看全榜名次。服务不可用时会显示连接失败，不会用本机纪录或示例名单代替全球成绩。
+
+- 飞行、打地鼠按经典 / 无限与三档难度分榜；弹弓经典按本局起始关分为 12 榜，无限独立一榜。
+- 大乱斗按经典 / 无限与三种角色分榜；2048 按 4×4 / 6×6 分榜，两种棋盘均允许撤销与续玩。
+- 接蛙、跳跃、幸存者、炸弹人分别提供经典与无限榜。本地双人和练习室不参与个人积分榜。
+
+首次开局会登记匿名浏览器身份和对局，未保存昵称的成绩只在本机待传。明确点击「保存昵称并提交」后，昵称和待传成绩会公开，后续每局结算自动提交。身份保存在当前浏览器的网站数据中，无需账号登录；同名不代表同一身份，更换浏览器或清除网站数据后无法接回原身份，已公开的成绩不会随本机数据一起删除。
+
+只有已在服务端登记成功的对局可以排队重试。结算时断网会保留待传成绩，恢复连接后可在排行榜点击「提交本榜待传成绩」；开局登记失败的离线游戏仅保留本地纪录，不会事后补造一局。普通对局自服务端登记起有效 7 天，2048 对局有效 90 天；过期后已上榜的最佳成绩仍保留，但该对局不能再提交。
+
+2048 达到 2048 和棋盘无路时提交同一对局的成绩检查点；继续、撤销、刷新恢复均沿用已登记的对局，分数降低不会覆盖较高纪录。旧版或未登记的存档可以继续玩，但不会追传历史分数；重新开局即可参与全球榜。
+
+这是客户端提交的社区成绩榜。服务端检查身份、分榜、整数范围、基本分数上限、服务端登记后的耗时和请求频率，并处理重复提交；这些检查不等于回放验证或强反作弊。完整分榜、提交和数据规则见 [排行榜说明](docs/leaderboard-rules.md)。
+
 ## 本地运行
 
-纯 HTML、CSS、原生 JavaScript 和 Canvas 2D，无前端运行时依赖或后端服务。所有游戏素材均随仓库保存。
+游戏前端使用 HTML、CSS、原生 JavaScript 和 Canvas 2D，无前端运行时依赖，游戏素材均随仓库保存。九款游戏可独立运行；全球排行榜另用 Sites 托管的服务端与 D1 数据库。
 
 ```sh
 python3 -m http.server 8080
@@ -50,16 +68,40 @@ python3 -m http.server 8080
 
 访问 <http://localhost:8080>。请通过 HTTP 打开，以便浏览器加载 ES 模块及音频。
 
+`js/leaderboard-config.js` 配置公开 API 地址。线上 API 仅允许配置过的网页来源写入；从本地调试真实登记与提交时，使用下述本地服务并将该地址改为服务打印的回环地址，发布前恢复目标服务地址。游戏本身不依赖排行榜连接成功。
+
+## 排行榜服务端
+
+`server/` 保存完整 Sites 服务源码、依赖锁文件、路由、D1 迁移和测试。线上服务是独立 Sites 项目，GitHub Pages 只托管游戏前端；推送本仓库或发布 `gh-pages` 不会更新服务端。服务源码与部署步骤的关系见 [服务说明](server/README.md)。
+
+后端要求 Node.js 22.13 或更高版本；原生 TypeScript 与 SQLite 测试已使用 Node.js 24 验证。在 `server/` 中安装并构建：
+
+```sh
+cd server
+npm run install:ci
+npm run build
+```
+
+首次建立本地数据库后再启动构建预览，命令仍在 `server/` 中运行：
+
+```sh
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_known_korvac.sql
+npm start
+```
+
+迁移只需对相应本地数据库执行一次，后续迁移按顺序应用。`npm run dev` 提供开发预览；本地状态不等于线上 D1 数据，线上发布由独立 Sites 项目处理。共享规则保留两份：[前端规则](js/leaderboard-rules.js) 与 [服务端规则](server/lib/leaderboard-rules.js)，修改时必须同步并运行两侧测试。
+
 ## 验证与构建
 
 ```sh
 npm ci
 npm test
+npm run test:leaderboard-service
 npm run test:browser
 npm run build
 ```
 
-浏览器测试使用 Playwright Chromium。新环境先执行 `npx playwright install chromium`；也可通过 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` 指定现有 Chromium 路径。测试覆盖电脑与手机输入、游戏切换、胜负计分、暂停、重开和本地存储。构建结果在 `dist/`，只包含公开网页及游戏素材。
+浏览器测试使用 Playwright Chromium。新环境先执行 `npx playwright install chromium`；也可通过 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` 指定现有 Chromium 路径。测试覆盖电脑与手机输入、游戏切换、胜负计分、暂停、重开和本地存储。服务端测试直接运行 `server/` 中的 TypeScript 服务及 SQL 迁移，使用 Node 原生 SQLite，无需先安装服务端依赖。构建结果在 `dist/`，只复制公开网页和游戏素材白名单，服务端源码、数据库、测试及私有运行状态不进入 GitHub Pages。
 
 可以在部署后对实际地址运行浏览器验收：
 
@@ -68,6 +110,20 @@ NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ npm run test:browser
 ```
 
 测试使用独立浏览器上下文，存档与成绩不影响玩家。逻辑测试通过真实公开输入验证全部 12 个弹弓关卡、30 个跳跃平台和 8 波接蛙挑战可完成；2048 测试覆盖四方向合并、无效移动、终盘、撤销及中途刷新。新增测试验证格斗六擂与双人胜负、炸弹迷宫连通与六关通关、幸存者完整首领战及长时间数量上限；浏览器覆盖双人键盘、手机多点触控、升级选择与暂停释放。
+
+排行榜测试覆盖分榜隔离、保存昵称后的提交、匿名待传、断网重试、过期对局、2048 检查点与存档恢复、重复和并发提交、服务端计时及权限边界。浏览器回归使用独立的排行榜测试接口，不向正式全球榜写入测试成绩。
+
+另有 [真实服务集成脚本](scripts/test-leaderboard-live.mjs)，用两个隔离浏览器实际游玩零分飞行局，验证昵称提交、彼此可见、个人名次和刷新恢复。它通过真实 HTTP 访问数据库服务，不伪造榜单响应，并在结束或失败时尝试删除这次创建的身份及成绩；清理失败会报告错误。启动本地网页 `8080` 和本地服务 `8787` 后运行：
+
+```sh
+node scripts/test-leaderboard-live.mjs
+```
+
+验收已部署服务时可显式指定两端地址；这会临时创建测试身份和零分记录，脚本完成后清理：
+
+```sh
+NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ NAIWA_LEADERBOARD_SERVICE=https://naiwa-arcade-scores.newcat6.chatgpt.site node scripts/test-leaderboard-live.mjs
+```
 
 ## GitHub Pages
 
@@ -87,6 +143,9 @@ js/frog-animation.js    动作帧采样与循环 / 单次动作时序
 js/frog-atlas.js        72 帧裁切边界与脚底锚点
 js/audio.js             本地笑声与交互音效
 js/games/               九款游戏的独立逻辑与渲染
+js/leaderboard-*.js     分榜规则、客户端、界面与公开 API 配置
+leaderboard.css         排行榜弹窗和移动端样式
+server/                 独立 Sites 服务端、D1 迁移与服务测试（不发布到 Pages）
 assets/                 本地图集、音频及来源说明
 tests/                  逻辑与浏览器验收测试
 scripts/build.mjs       静态发布目录生成
@@ -97,4 +156,4 @@ output/imagegen/        生成帧源 PNG 与提示词（不发布到站点）
 
 奶蛙动画与笑声来自 [NaiLoong / linalg](https://github.com/lin-alg/NaiLoong)（[奶-hub](https://nai-hub.com/)）。完整来源与授权说明见 [assets/ATTRIBUTION.md](assets/ATTRIBUTION.md)。页面也保留来源链接。游戏为非商业同人作品；未使用经典游戏原版图片、角色、关卡或音频。
 
-游戏成绩、关卡星级、2048 棋盘和音效偏好仅保存在浏览器 `localStorage`，不收集个人信息，不需要注册或登录。清理浏览器网站数据会清除这些本机记录。
+本机最高分、关卡星级、2048 棋盘、音效偏好和排行榜身份 / 待传队列保存在浏览器 `localStorage`。全球服务保存匿名玩家编号、昵称、凭据哈希、对局登记与最佳成绩；公开榜单包含昵称、玩家编号、分数、名次和服务端接收日期。请求限流使用来源哈希，服务数据库不保存原始 IP。无需账号登录；清理浏览器网站数据会清除本机记录及身份，已公开的全球成绩仍在服务端保留。

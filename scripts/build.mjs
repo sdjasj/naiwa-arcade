@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 // Only public application assets are deployed. Dependencies, tests and credentials are excluded.
 await rm('dist', { recursive: true, force: true });
 await mkdir('dist', { recursive: true });
-for (const path of ['index.html', 'styles.css', 'js', 'assets', '.nojekyll']) {
+for (const path of ['index.html', 'styles.css', 'leaderboard.css', 'js', 'assets', '.nojekyll']) {
   await cp(path, `dist/${path}`, { recursive: true });
 }
 async function filesAt(path) {
@@ -26,6 +26,7 @@ for (const file of files.filter(file => file.endsWith('.js'))) {
 const html = await readFile('dist/index.html', 'utf8');
 await writeFile('dist/index.html', html
   .replace('href="./styles.css"', `href="./styles.css?v=${build}"`)
+  .replace('href="./leaderboard.css"', `href="./leaderboard.css?v=${build}"`)
   .replace('src="./js/app.js"', `src="./js/app.js?v=${build}"`));
 const { version } = JSON.parse(await readFile('package.json', 'utf8'));
 await writeFile('dist/release.json', JSON.stringify({ version, build }) + '\n');

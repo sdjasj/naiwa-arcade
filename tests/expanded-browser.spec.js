@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect } from './browser-fixtures.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 

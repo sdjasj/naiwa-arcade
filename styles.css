@@ -137,3 +137,7 @@
   .upgrade-options span { font-size: 10px; }
   .fighter-art canvas, .survivor-art canvas, .bomber-art canvas { object-fit: contain; }
 }
+
+.leaderboard-result-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; background: #f5edd8; color: #82744b; font-size: 11px; line-height: 1.6; }
+.leaderboard-result-bar button { flex-shrink: 0; padding: 7px 10px; border: 1px solid #cfcca9; border-radius: 7px; background: #fffdf0; color: #657144; font-size: 11px; }
+.player-window:fullscreen .leaderboard-result-bar { display: none; }
