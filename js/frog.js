@@ -31,6 +31,8 @@ export function drawFrog(ctx, x, y, size, options = {}) {
     else if (expression === 'angry') { row = 8; col = 2; }
     else if (expression === 'hurt' || expression === 'squish') { row = 5; col = 3; }
     else if (expression === 'smug') { row = 8; col = 5; }
+    const poses = { idle: [0, 0], wave: [3, 1], run: [1, 3], shy: [7, 0], think: [6, 3], angry: [8, 2], sleep: [5, 4], smug: [8, 5], belly: [4, 0], laugh: [4, 1 + Math.floor(animationTime * 7) % 4] };
+    if (poses[options.pose]) [row, col] = poses[options.pose];
     const stretch = expression === 'laugh' ? Math.sin(animationTime * 22) * .025 : 0;
     ctx.scale(1 + stretch, 1 - stretch);
     ctx.drawImage(sheet, col * 192, row * 208, 192, 208, -size * .7, -size * .88, size * 1.4, size * 1.52);
@@ -45,6 +47,10 @@ export function drawFrog(ctx, x, y, size, options = {}) {
       ctx.fillStyle = '#26341d'; ctx.beginPath(); ctx.arc(side * size * .19, -size * .36, size * .055, 0, Math.PI * 2); ctx.fill();
     }
     ctx.strokeStyle = '#766133'; ctx.lineWidth = size * .018; ctx.beginPath(); ctx.arc(0, -size * .25, size * .13, .15, Math.PI - .15); ctx.stroke();
+  }
+  if (options.crown) {
+    ctx.fillStyle = '#edb52f'; ctx.strokeStyle = '#a77926'; ctx.lineWidth = Math.max(1, size * .018);
+    ctx.beginPath(); ctx.moveTo(-size * .22, -size * .73); ctx.lineTo(-size * .27, -size * .97); ctx.lineTo(-size * .1, -size * .87); ctx.lineTo(0, -size * 1.03); ctx.lineTo(size * .1, -size * .87); ctx.lineTo(size * .27, -size * .97); ctx.lineTo(size * .22, -size * .73); ctx.closePath(); ctx.fill(); ctx.stroke();
   }
   ctx.restore();
 }
@@ -68,7 +74,7 @@ export function drawHero(ctx, time) {
 export function drawCard(ctx, game) {
   const w = 640, h = 330;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = { flappy: '#dfeeda', angry: '#f7e9cf', whack: '#e9e6f3' }[game]; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = { flappy: '#dfeeda', angry: '#f7e9cf', whack: '#e9e6f3', catch: '#dceef1', jump: '#f1e0e8', merge: '#f2ebca' }[game]; ctx.fillRect(0, 0, w, h);
   if (game === 'flappy') {
     cloud(ctx, 155, 88, .8); cloud(ctx, 426, 62, .65);
     ctx.fillStyle = '#c5dcb3';ctx.beginPath();ctx.ellipse(470,366,340,120,0,0,Math.PI*2);ctx.fill();
@@ -86,7 +92,7 @@ export function drawCard(ctx, game) {
     drawFrog(ctx,150,173,109,{expression:'angry',rotation:-.4,scaleX:1.12});
     ctx.strokeStyle='#c6ad81';ctx.lineWidth=3;ctx.setLineDash([3,12]);ctx.beginPath();ctx.moveTo(238,134);ctx.quadraticCurveTo(370,39,465,191);ctx.stroke();ctx.setLineDash([]);
     for (const [x,y,ww,hh] of [[470,233,26,71],[557,233,26,71],[461,212,132,22],[495,157,23,55],[548,157,23,55],[484,140,98,20]]) {ctx.fillStyle='#c98c62';ctx.strokeStyle='#a9704e';ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(x,y,ww,hh,3);ctx.fill();ctx.stroke();ctx.fillStyle='#e2b183';ctx.fillRect(x+4,y+4,ww-8,4);}
-  } else {
+  } else if (game === 'whack') {
     ctx.strokeStyle='#dcd5e9';ctx.lineWidth=1;
     for(let x=0;x<w;x+=58){ctx.beginPath();ctx.moveTo(x,130);ctx.lineTo(x-100,h);ctx.stroke();}
     for(let y=153;y<h;y+=51){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
@@ -95,5 +101,26 @@ export function drawCard(ctx, game) {
     ctx.save();ctx.beginPath();ctx.rect(260,70,133,179);ctx.clip();drawFrog(ctx,325,178,137,{expression:'laugh'});ctx.restore();
     ctx.save();ctx.translate(493,129);ctx.rotate(.5);ctx.fillStyle='#a98570';ctx.beginPath();ctx.roundRect(-9,0,18,102,5);ctx.fill();ctx.fillStyle='#bc9fd3';ctx.strokeStyle='#8e73a1';ctx.lineWidth=3;ctx.beginPath();ctx.roundRect(-48,-24,96,54,13);ctx.fill();ctx.stroke();ctx.fillStyle='#d8c7e5';ctx.fillRect(-36,-15,14,36);ctx.restore();
     ctx.fillStyle='#9b81b0';ctx.font='bold 23px sans-serif';ctx.fillText('哈！',384,124);
+  } else if (game === 'catch') {
+    cloud(ctx, 110, 95, .85); cloud(ctx, 495, 68, .7);
+    ctx.strokeStyle='#b1d2d7';ctx.lineWidth=3;ctx.setLineDash([5,8]);
+    for (const x of [220,420]) { ctx.beginPath();ctx.moveTo(x,45);ctx.lineTo(x-14,125);ctx.stroke(); }ctx.setLineDash([]);
+    drawFrog(ctx,267,144,105,{expression:'laugh',rotation:.17});drawFrog(ctx,444,88,71,{pose:'wave',rotation:-.2});
+    ctx.fillStyle='#b88c5a';ctx.strokeStyle='#886844';ctx.lineWidth=4;ctx.beginPath();ctx.roundRect(220,230,209,82,[8,8,30,30]);ctx.fill();ctx.stroke();
+    ctx.strokeStyle='#d8b27a';ctx.lineWidth=5;
+    for(let x=245;x<419;x+=27){ctx.beginPath();ctx.moveTo(x,244);ctx.lineTo(x,297);ctx.stroke();}
+    ctx.beginPath();ctx.moveTo(235,267);ctx.lineTo(413,267);ctx.stroke();ctx.fillStyle='#e1c18c';ctx.beginPath();ctx.roundRect(211,220,226,20,9);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#658795';ctx.font='bold 24px sans-serif';ctx.fillText('+50',135,174);
+  } else if (game === 'jump') {
+    cloud(ctx,120,100,.6);cloud(ctx,500,85,.8);
+    ctx.strokeStyle='#b898b0';ctx.lineWidth=3;ctx.setLineDash([4,9]);ctx.beginPath();ctx.moveTo(190,217);ctx.quadraticCurveTo(306,29,457,209);ctx.stroke();ctx.setLineDash([]);
+    for(const [x,y,ww] of [[115,248,127],[413,228,123]]){ctx.fillStyle='#c4a1b8';ctx.beginPath();ctx.roundRect(x,y,ww,82,7);ctx.fill();ctx.fillStyle='#ead3dd';ctx.beginPath();ctx.roundRect(x-6,y-6,ww+12,20,7);ctx.fill();}
+    drawFrog(ctx,309,144,108,{pose:'wave',rotation:.2});
+    ctx.strokeStyle='#a8b785';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(475,232,29,8,0,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='#93778a';ctx.font='bold 22px sans-serif';ctx.fillText('完美！',429,185);
+  } else if (game === 'merge') {
+    const tiles=[{x:120,y:88,n:2,pose:'idle',color:'#edf1d9'},{x:262,y:88,n:4,pose:'wave',color:'#dae8d0'},{x:403,y:88,n:2048,pose:'laugh',color:'#e9ca68'}];
+    for(const t of tiles){ctx.fillStyle='#c4be9a';ctx.beginPath();ctx.roundRect(t.x-5,t.y-5,124,163,13);ctx.fill();ctx.fillStyle=t.color;ctx.beginPath();ctx.roundRect(t.x,t.y,114,153,10);ctx.fill();drawFrog(ctx,t.x+57,t.y+71,75,{pose:t.pose});ctx.fillStyle='#52603c';ctx.font='800 24px sans-serif';ctx.textAlign='center';ctx.fillText(String(t.n),t.x+57,t.y+140);}ctx.textAlign='left';
+    ctx.fillStyle='#a39655';ctx.font='bold 20px sans-serif';ctx.fillText('越来越抽象 →',256,289);
   }
 }

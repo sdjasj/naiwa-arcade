@@ -1,4 +1,15 @@
 const TAU = Math.PI * 2;
+const MODES = {
+  easy: { label: '轻松', gap: 248, minGap: 224, shrink: 0.9, speed: 172, maxSpeed: 225, speedGain: 2.2, gravity: 840, terminal: 490, flap: 328, startVelocity: -205, spacing: 350, centerStep: 70 },
+  normal: { label: '标准', gap: 204, minGap: 178, shrink: 1.2, speed: 205, maxSpeed: 278, speedGain: 3.2, gravity: 990, terminal: 550, flap: 355, startVelocity: -220, spacing: 335, centerStep: 86 },
+  hard: { label: '困难', gap: 178, minGap: 150, shrink: 1.4, speed: 235, maxSpeed: 320, speedGain: 4, gravity: 1120, terminal: 610, flap: 370, startVelocity: -230, spacing: 320, centerStep: 96 },
+};
+const SCENES = [
+  { name: '晴空', sky: ['#dff5f1', '#f6f9dd'], sun: '#fff0ab', rays: '#f5cf78', far: '#d1e8c5', near: '#bdd89f' },
+  { name: '晚霞', sky: ['#f5d7d7', '#fff0cf'], sun: '#f6bb80', rays: '#e4a476', far: '#dfc6b1', near: '#c9b99a' },
+  { name: '星夜', sky: ['#68768e', '#b4bfd1'], sun: '#fff2c8', rays: '#d6d7bf', far: '#9eaeb6', near: '#879f9f' },
+];
+const normalizeDifficulty = value => Object.hasOwn(MODES, value) ? value : 'normal';
 
 export function createGame(env) {
   const { ctx, width = 960, height = 560, drawFrog, audio, onScore, onStatus, onEnd } = env;
@@ -17,6 +28,14 @@ export function createGame(env) {
   let particles = [];
   let ended = false;
   let hitGround = false;
+  let difficulty = normalizeDifficulty(env.difficulty);
+  let mode = MODES[difficulty];
+  let flaps = 0;
+  let flightSeconds = 0;
+
+  function chapter() { return Math.floor(score / 5) + 1; }
+  function scene() { return SCENES[(chapter() - 1) % SCENES.length]; }
+  function stats() { return { flaps, flightSeconds, distance, pipesPassed: score }; }
 
   function play(kind) {
     audio?.play(kind);
@@ -38,16 +57,17 @@ export function createGame(env) {
   }
 
   function makePipe(x, first = false) {
-    const gap = Math.max(178, 204 - score * 1.2);
+    const gap = Math.max(mode.minGap, mode.gap - score * mode.shrink);
     const previous = pipes[pipes.length - 1];
     let center = first ? height * 0.43 : 175 + Math.random() * 165;
-    if (previous) center = Math.max(previous.center - 86, Math.min(previous.center + 86, center));
+    if (previous) center = Math.max(previous.center - mode.centerStep, Math.min(previous.center + mode.centerStep, center));
     return { x, width: 86, gap, center, passed: false };
   }
 
   function flap() {
     if (phase !== 'running') return;
-    velocity = -355;
+    velocity = -mode.flap;
+    flaps += 1;
     flapTime = 0.19;
     play('flap');
     for (let i = 0; i < 4; i += 1) {
@@ -94,23 +114,27 @@ export function createGame(env) {
     return (frogX - closestX) ** 2 + (playerY - closestY) ** 2 < radius ** 2;
   }
 
-  function start() {
+  function start(options = {}) {
+    difficulty = normalizeDifficulty(options?.difficulty ?? difficulty);
+    mode = MODES[difficulty];
     phase = 'running';
     score = 0;
     elapsed = 0;
     distance = 0;
+    flaps = 0;
+    flightSeconds = 0;
     crashTime = 0;
     flapTime = 0.19;
     playerY = height * 0.43;
-    velocity = -220;
+    velocity = mode.startVelocity;
     pipes = [];
     particles = [];
     ended = false;
     hitGround = false;
     pipes.push(makePipe(width - 80, true));
-    pipes.push(makePipe(width - 80 + 335));
+    pipes.push(makePipe(width - 80 + mode.spacing));
     onScore?.(0);
-    onStatus?.('点击 / 空格 / ↑ 拍翅膀 · 穿过水管得 1 分');
+    onStatus?.(`${mode.label}模式 · 点击 / 空格 / ↑ 拍翅膀 · 每 5 根水管进入新风景`);
   }
 
   function update(dt) {
@@ -133,6 +157,10 @@ export function createGame(env) {
         phase = 'ended';
         onEnd?.({
           score,
+          difficulty,
+          chapter: chapter(),
+          chapterName: scene().name,
+          stats: stats(),
           title: score >= 10 ? '奶蛙竟然飞起来了！' : '翅膀下班，肚子着陆。',
           message: score === 0
             ? '奶蛙：刚刚那是热身！轻轻连点，让肚子从水管中间钻过去。'
@@ -142,9 +170,10 @@ export function createGame(env) {
       return;
     }
 
-    const speed = Math.min(278, 205 + score * 3.2);
+    const speed = Math.min(mode.maxSpeed, mode.speed + score * mode.speedGain);
+    flightSeconds += dt;
     distance += speed * dt;
-    velocity = Math.min(550, velocity + 990 * dt);
+    velocity = Math.min(mode.terminal, velocity + mode.gravity * dt);
     playerY += velocity * dt;
     if (playerY < radius + 6) {
       playerY = radius + 6;
@@ -167,12 +196,13 @@ export function createGame(env) {
         play('score');
         if (score === 3) onStatus?.('有点东西！奶蛙开始相信自己的翅膀了。');
         if (score === 10) onStatus?.('两栖动物，正式申请加入航空业。');
+        if (score % 5 === 0) onStatus?.(`第 ${chapter()} 段 · ${scene().name}！奶蛙又飞过一片新风景。`);
       }
     }
     pipes = pipes.filter(pipe => pipe.x + pipe.width > -30);
     const lastPipe = pipes[pipes.length - 1];
     if (!lastPipe || lastPipe.x < width - 255) {
-      pipes.push(makePipe(lastPipe ? lastPipe.x + 335 : width + 80));
+      pipes.push(makePipe(lastPipe ? lastPipe.x + mode.spacing : width + 80));
     }
     if (playerY + radius >= ground) {
       playerY = ground - radius;
@@ -194,24 +224,35 @@ export function createGame(env) {
   }
 
   function background(time) {
+    const colors = scene();
     const sky = ctx.createLinearGradient(0, 0, 0, ground);
-    sky.addColorStop(0, '#dff5f1');
-    sky.addColorStop(1, '#f6f9dd');
+    sky.addColorStop(0, colors.sky[0]);
+    sky.addColorStop(1, colors.sky[1]);
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, width, height);
 
-    ctx.fillStyle = '#fff0ab';
+    ctx.fillStyle = colors.sun;
     ctx.beginPath();
     ctx.arc(width - 124, 95, 37, 0, TAU);
     ctx.fill();
-    ctx.strokeStyle = '#f5cf78';
+    ctx.strokeStyle = colors.rays;
     ctx.lineWidth = 3;
-    for (let i = 0; i < 8; i += 1) {
+    for (let i = 0; i < (colors.name === '星夜' ? 0 : 8); i += 1) {
       const angle = i * TAU / 8;
       ctx.beginPath();
       ctx.moveTo(width - 124 + Math.cos(angle) * 47, 95 + Math.sin(angle) * 47);
       ctx.lineTo(width - 124 + Math.cos(angle) * 54, 95 + Math.sin(angle) * 54);
       ctx.stroke();
+    }
+    if (colors.name === '星夜') {
+      ctx.fillStyle = colors.sky[0];
+      ctx.beginPath(); ctx.arc(width - 109, 81, 34, 0, TAU); ctx.fill();
+      for (let i = 0; i < 19; i++) {
+        ctx.globalAlpha = 0.35 + (Math.sin(time * 1.4 + i) + 1) * 0.25;
+        ctx.fillStyle = '#fff9dd';
+        star(28 + (i * 173) % (width - 55), 40 + (i * 47) % 255, i % 3 === 0 ? 4 : 2.5, 0);
+      }
+      ctx.globalAlpha = 1;
     }
     const drift = phase === 'idle' ? time * 6 : distance * 0.16;
     for (let i = 0; i < 6; i += 1) {
@@ -219,7 +260,7 @@ export function createGame(env) {
       cloud(x, 91 + (i % 3) * 83, 0.7 + (i % 2) * 0.3);
     }
 
-    ctx.fillStyle = '#d1e8c5';
+    ctx.fillStyle = colors.far;
     ctx.beginPath();
     ctx.moveTo(0, ground);
     for (let x = 0; x <= width + 15; x += 15) {
@@ -229,7 +270,7 @@ export function createGame(env) {
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = '#bdd89f';
+    ctx.fillStyle = colors.near;
     ctx.beginPath();
     ctx.moveTo(0, ground);
     for (let x = 0; x <= width + 15; x += 15) {
@@ -356,6 +397,15 @@ export function createGame(env) {
     ctx.font = '600 15px "Noto Sans SC", system-ui, sans-serif';
     ctx.fillText('小翅膀，也有大梦想。', 24, ground + 34);
 
+    roundedRect(20, 18, 197, 49, 15, 'rgba(255,253,244,0.90)');
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#4e6856';
+    ctx.font = '700 15px "Noto Sans SC", system-ui, sans-serif';
+    ctx.fillText(`${mode.label} · 第 ${chapter()} 段 ${scene().name}`, 33, 39);
+    ctx.fillStyle = '#7a8972';
+    ctx.font = '12px "Noto Sans SC", system-ui, sans-serif';
+    ctx.fillText(`再过 ${5 - score % 5} 根水管，下一片风景`, 33, 56);
+
     if (phase === 'running' && elapsed < 3) {
       const alpha = Math.min(1, 3 - elapsed);
       ctx.globalAlpha = alpha;
@@ -392,6 +442,11 @@ export function createGame(env) {
       return {
         phase,
         score,
+        difficulty,
+        chapter: chapter(),
+        chapterName: scene().name,
+        speed: Math.min(mode.maxSpeed, mode.speed + score * mode.speedGain),
+        stats: stats(),
         player: { x: frogX, y: playerY, velocity, radius },
         pipes: pipes.map(({ x, width: w, gap, center, passed }) => ({ x, width: w, gap, center, passed })),
       };

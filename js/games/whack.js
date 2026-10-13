@@ -1,6 +1,12 @@
 const ROUND_SECONDS = 30;
 const TAUNTS = ['略略略～', '就这？呱哈哈！', '没打着吧！', '手速跟上呀～'];
 const EXPRESSIONS = ['happy', 'smug', 'angry', 'laugh'];
+const MODES = {
+  easy: { label: '轻松', appearance: 1.32, spawn: 1.18 },
+  normal: { label: '标准', appearance: 1, spawn: 1 },
+  hard: { label: '困难', appearance: 0.75, spawn: 0.78 },
+};
+const normalizeDifficulty = value => Object.hasOwn(MODES, value) ? value : 'normal';
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 const easeOut = (n) => 1 - (1 - n) ** 3;
@@ -18,6 +24,7 @@ export function createGame(env) {
     expression: 'happy',
     key: index + 1,
     taunt: '',
+    golden: false,
   }));
   let phase = 'idle';
   let score = 0;
@@ -32,6 +39,14 @@ export function createGame(env) {
   let hammer = null;
   let cursor = null;
   let clockSound = -1;
+  let difficulty = normalizeDifficulty(env.difficulty);
+  let mode = MODES[difficulty];
+  let misses = 0;
+  let spawned = 0;
+  let goldenHits = 0;
+
+  function accuracy() { return hits + misses ? Math.round(hits / (hits + misses) * 100) : 0; }
+  function stats() { return { hits, misses, escaped, spawned, goldenHits, bestCombo, accuracy: accuracy(), attempts: hits + misses }; }
 
   function play(kind) {
     audio?.play(kind);
@@ -72,23 +87,30 @@ export function createGame(env) {
     bestCombo = 0;
     hits = 0;
     escaped = 0;
+    misses = 0;
+    spawned = 0;
+    goldenHits = 0;
     timeLeft = ROUND_SECONDS;
     elapsed = 0;
     spawnIn = 0.1;
     effects = [];
     hammer = null;
+    cursor = null;
     clockSound = -1;
     for (const hole of holes) {
       hole.state = 'hidden';
       hole.age = 0;
+      hole.golden = false;
     }
   }
 
-  function start() {
+  function start(options = {}) {
+    difficulty = normalizeDifficulty(options?.difficulty ?? difficulty);
+    mode = MODES[difficulty];
     reset();
     phase = 'playing';
     onScore?.(0);
-    onStatus?.('奶蛙冒头就敲！连续命中有加分。');
+    onStatus?.(`${mode.label}模式 · 连击有加分，逮住每第 7 只金冠奶蛙额外 +30！`);
   }
 
   function addText(label, x, y, color = '#336747', large = false) {
@@ -99,10 +121,12 @@ export function createGame(env) {
     const free = holes.filter((hole) => hole.state === 'hidden');
     if (!free.length) return;
     const hole = free[Math.floor(Math.random() * free.length)];
-    const difficulty = 1 - timeLeft / ROUND_SECONDS;
+    const roundProgress = 1 - timeLeft / ROUND_SECONDS;
+    spawned += 1;
     hole.state = 'rising';
     hole.age = 0;
-    hole.duration = 1.1 - difficulty * 0.4 + Math.random() * 0.35;
+    hole.duration = (1.1 - roundProgress * 0.4 + Math.random() * 0.35) * mode.appearance;
+    hole.golden = spawned % 7 === 0;
     hole.expression = EXPRESSIONS[Math.floor(Math.random() * EXPRESSIONS.length)];
     hole.taunt = TAUNTS[Math.floor(Math.random() * TAUNTS.length)];
     play('pop');
@@ -114,16 +138,21 @@ export function createGame(env) {
     timeLeft = 0;
     for (const hole of holes) hole.state = 'hidden';
     play('win');
-    onStatus?.(`时间到！命中 ${hits} 只，最高 ${bestCombo} 连击。`);
+    onStatus?.(`时间到！命中 ${hits} 只 · 命中率 ${accuracy()}% · 空锤 ${misses} 次。`);
     onEnd?.({
       score,
+      difficulty,
+      stats: stats(),
+      accuracy: accuracy(),
+      misses,
+      goldenHits,
       title: hits >= 35 ? '奶蛙克星！' : hits >= 18 ? '这手速，蛙服了！' : '奶蛙还在偷笑',
-      message: `命中 ${hits} 只 · 最高 ${bestCombo} 连击 · ${escaped} 只逃走。再来一局，手感会更好！`,
+      message: `命中 ${hits} 只 · 命中率 ${accuracy()}% · 空锤 ${misses} 次 · 金冠 ${goldenHits} 只 · 最高 ${bestCombo} 连击 · ${escaped} 只逃走。`,
     });
   }
 
   function update(dt) {
-    const step = clamp(dt, 0, 0.1);
+    const step = clamp(Number.isFinite(dt) ? dt : 0, 0, 0.1);
     elapsed += step;
     effects = effects.filter((effect) => {
       effect.age += step;
@@ -146,8 +175,8 @@ export function createGame(env) {
     spawnIn -= step;
     if (spawnIn <= 0) {
       spawn();
-      const difficulty = 1 - timeLeft / ROUND_SECONDS;
-      spawnIn = 0.65 - difficulty * 0.35 + Math.random() * 0.1;
+      const roundProgress = 1 - timeLeft / ROUND_SECONDS;
+      spawnIn = (0.65 - roundProgress * 0.35 + Math.random() * 0.1) * mode.spawn;
     }
     for (const hole of holes) {
       hole.age += step;
@@ -188,13 +217,15 @@ export function createGame(env) {
       combo += 1;
       hits += 1;
       bestCombo = Math.max(bestCombo, combo);
-      const points = 10 + Math.min(30, Math.floor(combo / 3) * 5);
+      const points = 10 + Math.min(30, Math.floor(combo / 3) * 5) + (hole.golden ? 30 : 0);
+      if (hole.golden) goldenHits += 1;
       score += points;
       onScore?.(score);
       play('hit');
-      if (combo > 1) onStatus?.(`${combo} 连击！奶蛙的笑容逐渐消失。`);
+      if (hole.golden) onStatus?.(`金冠奶蛙到手！额外 +30 · ${combo} 连击！`);
+      else if (combo > 1) onStatus?.(`${combo} 连击！奶蛙的笑容逐渐消失。`);
       else onStatus?.('敲中了！保持节奏，连击加分。');
-      addText(`+${points}`, hole.x, hole.y - 106, '#2b7750', true);
+      addText(hole.golden ? `金冠 +${points}` : `+${points}`, hole.x, hole.y - 106, hole.golden ? '#a77924' : '#2b7750', true);
       for (let i = 0; i < 9; i += 1) {
         const angle = (i / 9) * Math.PI * 2;
         effects.push({
@@ -207,6 +238,7 @@ export function createGame(env) {
       }
     } else {
       combo = 0;
+      misses += 1;
       play('miss');
       addText('敲了个寂寞', point.x, point.y - 36, '#ab7668');
       onStatus?.('空锤！奶蛙在洞里偷笑。');
@@ -253,14 +285,14 @@ export function createGame(env) {
       ellipse(0, 0, 4, 4, '#e9bb58');
       ctx.restore();
     }
-    text('九宫格蛙田', 48, 38, 23, '#3f5f40', 'left');
+    text(`九宫格蛙田 · ${mode.label}`, 48, 38, 23, '#3f5f40', 'left');
     text('鼠标 / 触屏敲击 · 键盘 1–9', 48, 64, 15, '#758766', 'left', 600);
     const timerColor = timeLeft <= 5 ? '#bb6558' : '#3f654d';
     rounded(365, 22, 286, 40, 20, '#f7faef');
     rounded(374, 31, Math.max(0, 219 * (timeLeft / ROUND_SECONDS)), 22, 11, timeLeft <= 5 ? '#eab39a' : '#a7c885');
     text(`${Math.ceil(timeLeft)}s`, 620, 43, 20, timerColor);
     text(combo > 1 ? `${combo} 连击` : '逮住那只蛙！', 902, 39, 23, combo > 1 ? '#ad714b' : '#4b6845', 'right');
-    text(combo >= 3 ? `每只 +${10 + Math.min(30, Math.floor(combo / 3) * 5)} 分` : '连续命中 · 分数翻起来', 902, 65, 15, '#7a8966', 'right', 600);
+    text(`命中率 ${accuracy()}% · 空锤 ${misses}`, 902, 65, 15, '#7a8966', 'right', 600);
   }
 
   function renderHole(hole, time, index) {
@@ -305,7 +337,20 @@ export function createGame(env) {
       ctx.rect(x - 130, y - 161, 260, 164);
       ctx.clip();
       const bodyY = y + 79 - emergence * 126;
-      drawFrog(ctx, x, bodyY, 120, { expression, scaleX, scaleY, rotation });
+      if (hole.golden) {
+        ctx.strokeStyle = '#e4ba48';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(x, bodyY - 2, 71, 53, 0, 0, Math.PI * 2); ctx.stroke();
+        for (let i = 0; i < 4; i++) {
+          const angle = time * 1.1 + i * Math.PI / 2;
+          const sx = x + Math.cos(angle) * 78, sy = bodyY - 2 + Math.sin(angle) * 58;
+          ctx.strokeStyle = i % 2 ? '#fff9d9' : '#d9a833';
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(sx - 4, sy); ctx.lineTo(sx + 4, sy);
+          ctx.moveTo(sx, sy - 4); ctx.lineTo(sx, sy + 4); ctx.stroke();
+        }
+      }
+      drawFrog(ctx, x, bodyY, 120, { expression, scaleX, scaleY, rotation, crown: hole.golden });
       ctx.restore();
     }
     ctx.beginPath();
@@ -412,7 +457,8 @@ export function createGame(env) {
     getState() {
       return {
         phase, score, timeLeft, combo, bestCombo, hits, escaped,
-        holes: holes.map(({ key, x, y, state, age, duration, expression }) => ({ key, x, y, state, age, duration, expression })),
+        difficulty, misses, spawned, goldenHits, accuracy: accuracy(), stats: stats(),
+        holes: holes.map(({ key, x, y, state, age, duration, expression, golden }) => ({ key, x, y, state, age, duration, expression, golden })),
       };
     },
   };

@@ -7,6 +7,28 @@ const POWER = 8.2;
 const GRAVITY = 820;
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 
+export const LEVELS = Object.freeze([
+  { name: '开张第一拆', shots: 3, hint: '瞄准下面的木柱，让楼上的奶盒一起落地。' },
+  { name: '邻居也在笑', shots: 3, hint: '高低两座塔，抛高一点可以越过前排。' },
+  { name: '叠叠乐危楼', shots: 3, hint: '先拆底层支柱，两层奶盒就会往下掉。' },
+  { name: '奶盒排排坐', shots: 4, hint: '三座矮棚排成一列，低角度可以连续反弹。' },
+  { name: '云上奶茶店', shots: 4, hint: '高楼底部很宽，击中支柱比追着楼顶更省力。' },
+  { name: '双子笑声塔', shots: 4, hint: '先处理一座双层塔，再调整力度击中另一座。' },
+  { name: '上坡拆迁路', shots: 4, hint: '屋顶越来越高，用不同角度逐座突破。' },
+  { name: '奶盒天桥', shots: 4, hint: '桥面由两端支撑，试着从桥墩开始拆。' },
+  { name: '三层不加盖', shots: 5, hint: '地上的奶盒和三层高塔都要拆，留意两侧。' },
+  { name: '左右都嘴硬', shots: 5, hint: '前面高、后面宽，落地反弹也能清理中间的奶盒。' },
+  { name: '城堡休息日', shots: 5, hint: '外侧两座门楼保护着中间高台，试试高抛。' },
+  { name: '终极蛙拆队', shots: 5, hint: '双楼共用一层地基！找准支点，再清理两侧。' },
+].map(level => Object.freeze(level)));
+
+const SCENES = [
+  { sky: '#f8ead6', sun: '#f2b174', far: '#dce0bb', near: '#c6cba0', ground: '#cfab82', grass: '#a7b480', name: '奶油原野' },
+  { sky: '#e8eee0', sun: '#efc77a', far: '#cadbba', near: '#adcaad', ground: '#c8ae8c', grass: '#92b597', name: '薄荷山谷' },
+  { sky: '#f8e0d6', sun: '#e99f82', far: '#e0c3b0', near: '#c9b49d', ground: '#c7a38a', grass: '#b4af8b', name: '蜜桃黄昏' },
+  { sky: '#e5e4f1', sun: '#e9c49e', far: '#ced0de', near: '#b8becf', ground: '#b7a5a0', grass: '#9aa8a4', name: '紫芋晚霞' },
+];
+
 export function createGame(env) {
   const { ctx, drawFrog, audio, onScore, onStatus, onEnd } = env;
   let phase = 'idle';
@@ -32,6 +54,17 @@ export function createGame(env) {
   let trailTime = 0;
   let combo = '';
   let comboTime = 0;
+  let earnedStars = 0;
+  let progress = { unlocked: clamp(Math.floor(Number(env.progress?.unlocked) || 1), 1, LEVELS.length), stars: {} };
+  for (const [key, value] of Object.entries(env.progress?.stars || {})) {
+    const index = Number(key), stars = Math.floor(Number(value));
+    if (Number.isInteger(index) && index >= 1 && index <= LEVELS.length && stars >= 1) {
+      progress.stars[index] = Math.min(3, stars);
+      progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, index + 1));
+    }
+  }
+
+  function copyProgress() { return { unlocked: progress.unlocked, stars: { ...progress.stars } }; }
 
   function sound(kind) { audio?.play?.(kind); }
   function status(text) { onStatus?.(text); }
@@ -62,10 +95,14 @@ export function createGame(env) {
     bodies = [];
     particles = [];
     trail = [];
-    shots = 3;
+    shots = LEVELS[index].shots;
     frog = null;
     phase = 'ready';
     phaseTime = 0;
+    earnedStars = 0;
+    flightTime = 0;
+    trailTime = 0;
+    comboTime = 0;
     aimAngle = (index === 2 ? 47 : 42) * Math.PI / 180;
     aimPower = 0.8;
     keyboardAiming = false;
@@ -76,23 +113,63 @@ export function createGame(env) {
       tower(648, GROUND, 120, 92, false);
       tower(827, GROUND, 104, 128, true);
       body(650, GROUND - 120, 34, 40, true);
-    } else {
+    } else if (index === 2) {
       tower(710, GROUND, 182, 95, false);
       const upperBase = GROUND - 115;
       tower(710, upperBase, 110, 76, true);
       body(845, GROUND - 20, 34, 40, true);
+    } else if (index === 3) {
+      for (const x of [556, 708, 860]) tower(x, GROUND, 86, 64);
+    } else if (index === 4) {
+      tower(742, GROUND, 194, 108, false);
+      tower(742, GROUND - 128, 120, 110);
+      body(589, GROUND - 20, 34, 40, true);
+    } else if (index === 5) {
+      for (const x of [609, 830]) {
+        tower(x, GROUND, 126, 74, false);
+        tower(x, GROUND - 94, 82, 74);
+      }
+    } else if (index === 6) {
+      tower(540, GROUND, 82, 64);
+      tower(704, GROUND, 92, 110);
+      tower(867, GROUND, 90, 154);
+    } else if (index === 7) {
+      tower(592, GROUND, 112, 110, false);
+      tower(826, GROUND, 112, 110, false);
+      body(709, GROUND - 140, 370, 20);
+      for (const x of [635, 709, 783]) body(x, GROUND - 170, 34, 40, true);
+    } else if (index === 8) {
+      tower(719, GROUND, 224, 85, false);
+      tower(719, GROUND - 105, 154, 79, false);
+      tower(719, GROUND - 204, 88, 73);
+      for (const x of [549, 882]) body(x, GROUND - 20, 34, 40, true);
+    } else if (index === 9) {
+      tower(542, GROUND, 96, 170);
+      tower(832, GROUND, 134, 92);
+      for (const x of [657, 713]) body(x, GROUND - 20, 34, 40, true);
+    } else if (index === 10) {
+      tower(548, GROUND, 82, 96);
+      tower(870, GROUND, 82, 96);
+      tower(710, GROUND, 150, 93, false);
+      tower(710, GROUND - 113, 94, 86);
+    } else {
+      tower(713, GROUND, 266, 92, false);
+      tower(646, GROUND - 112, 94, 81);
+      tower(782, GROUND - 112, 94, 108);
+      for (const x of [526, 895]) body(x, GROUND - 20, 34, 40, true);
     }
-    status(`第 ${level + 1} / 3 关 · ${shots} 发机会 · 拉住奶蛙向左下拖，再松手！`);
+    status(`第 ${level + 1} / ${LEVELS.length} 关 · ${LEVELS[level].name} · ${shots} 发 · ${LEVELS[level].hint}`);
   }
 
-  function start() {
+  function start(options = {}) {
     score = 0;
     elapsed = 0;
     shake = 0;
     combo = '';
     endSent = false;
     onScore?.(0);
-    loadLevel(0);
+    const selected = clamp(Math.floor(Number(options?.level) || 1), 1, LEVELS.length);
+    loadLevel(selected - 1);
   }
 
   function finish(win) {
@@ -100,8 +177,10 @@ export function createGame(env) {
     phase = 'ended';
     endSent = true;
     sound(win ? 'win' : 'miss');
-    onEnd?.({ score, title: win ? '奶蛙拆迁队，收工！' : '笑是笑了，房还在',
-      message: win ? `三关全部拆完！奶蛙的肚子，才是真正的攻城锤。` : `闯到第 ${level + 1} 关，还有 ${targetCount()} 个奶盒在偷笑。瞄准木架底部，再试一次！` });
+    onEnd?.({ score, level: level + 1, won: win, stars: earnedStars,
+      title: win ? '奶蛙拆迁队，收工！' : '笑是笑了，房还在',
+      message: win ? `第 ${LEVELS.length} 关完工！已获得 ${Object.values(progress.stars).reduce((sum, n) => sum + n, 0)} 颗星，回去挑战每关三星吧。`
+        : `第 ${level + 1} 关「${LEVELS[level].name}」还有 ${targetCount()} 个奶盒在偷笑。${LEVELS[level].hint}` });
   }
 
   function burst(x, y, color, count = 12) {
@@ -307,15 +386,19 @@ export function createGame(env) {
     }
     if (targetCount() === 0 && phase !== 'levelclear') {
       addScore(shots * 100 + 150);
+      earnedStars = shots >= Math.ceil(LEVELS[level].shots / 2) ? 3 : shots >= 1 ? 2 : 1;
+      progress.stars[level + 1] = Math.max(progress.stars[level + 1] || 0, earnedStars);
+      progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, level + 2));
+      env.onProgress?.(copyProgress());
       phase = 'levelclear';
       phaseTime = 0;
       sound('win');
-      combo = `第 ${level + 1} 关拆完！剩余弹药奖励 +${shots * 100}`;
+      combo = `${'★'.repeat(earnedStars)}${'☆'.repeat(3 - earnedStars)}  ${LEVELS[level].name} · 奖励 +${shots * 100}`;
       comboTime = 2;
-      status(level < 2 ? '拆得漂亮！马上搬去下一个工地…' : '三关全通！奶蛙今天也很努力。');
+      status(level < LEVELS.length - 1 ? `获得 ${earnedStars} 颗星！下一站：${LEVELS[level + 1].name}…` : '终极工地完工！奶蛙今天也很努力。');
     }
     if (phase === 'levelclear' && phaseTime > 1.7) {
-      if (level < 2) loadLevel(level + 1);
+      if (level < LEVELS.length - 1) loadLevel(level + 1);
       else finish(true);
     } else if (phase === 'settling' && phaseTime > 1.7) {
       if (shots <= 0) finish(false);
@@ -390,32 +473,36 @@ export function createGame(env) {
   }
 
   function drawBackground(time) {
-    ctx.fillStyle = '#f8ead6'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#f2b174'; ctx.beginPath(); ctx.arc(809, 100, 42, 0, Math.PI * 2); ctx.fill();
+    const scene = SCENES[Math.floor(level / 3)];
+    ctx.fillStyle = scene.sky; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = scene.sun; ctx.beginPath(); ctx.arc(809, 100, 42, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#db9360'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(798, 98, 2, 0, Math.PI * 2); ctx.arc(821, 98, 2, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.arc(809, 105, 8, 0.1, Math.PI - 0.1); ctx.stroke();
     cloud(178 + Math.sin(time * 0.09) * 12, 116, 1);
     cloud(496 + Math.sin(time * 0.12) * 9, 155, 0.72);
-    ctx.fillStyle = '#dce0bb';
+    ctx.fillStyle = scene.far;
     ctx.beginPath(); ctx.moveTo(0, 404); ctx.bezierCurveTo(160, 240, 281, 441, 440, 349);
     ctx.bezierCurveTo(625, 219, 757, 427, 960, 312); ctx.lineTo(W, GROUND); ctx.lineTo(0, GROUND); ctx.fill();
-    ctx.fillStyle = '#c6cba0';
+    ctx.fillStyle = scene.near;
     ctx.beginPath(); ctx.moveTo(0, 440); ctx.bezierCurveTo(223, 355, 355, 495, 538, 416);
     ctx.bezierCurveTo(695, 365, 818, 454, 960, 395); ctx.lineTo(W, GROUND); ctx.lineTo(0, GROUND); ctx.fill();
-    ctx.fillStyle = '#cfab82'; ctx.fillRect(0, GROUND, W, H - GROUND);
-    ctx.fillStyle = '#a7b480'; ctx.fillRect(0, GROUND - 4, W, 8);
+    ctx.fillStyle = scene.ground; ctx.fillRect(0, GROUND, W, H - GROUND);
+    ctx.fillStyle = scene.grass; ctx.fillRect(0, GROUND - 4, W, 8);
     ctx.strokeStyle = '#bd956e'; ctx.lineWidth = 2;
     for (let i = 0; i < 26; i++) {
       const x = (i * 137 + 19) % W, y = 488 + ((i * 31) % 55);
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 8, y + 2); ctx.stroke();
     }
     ctx.fillStyle = '#4f5840'; ctx.font = '700 17px system-ui, sans-serif';
-    ctx.textAlign = 'left'; ctx.fillText(`拆迁进度  ${level + 1} / 3`, 30, 38);
+    ctx.textAlign = 'left'; ctx.fillText(`${String(level + 1).padStart(2, '0')} / ${LEVELS.length}  ${LEVELS[level].name}`, 30, 38);
     ctx.fillStyle = '#77755f'; ctx.font = '13px system-ui, sans-serif';
-    ctx.fillText(`奶盒剩余 ${targetCount()} 个`, 30, 61);
+    ctx.fillText(`${scene.name} · 奶盒剩余 ${targetCount()} 个`, 30, 61);
     ctx.textAlign = 'right'; ctx.fillStyle = '#4f5840'; ctx.font = '700 15px system-ui, sans-serif';
-    ctx.fillText(`剩余弹药  ${shots} / 3`, W - 30, 38);
+    ctx.fillText(`剩余弹药  ${shots} / ${LEVELS[level].shots}`, W - 30, 38);
+    const bestStars = progress.stars[level + 1] || 0;
+    ctx.fillStyle = bestStars ? '#a36e37' : '#858274'; ctx.font = '14px system-ui, sans-serif';
+    ctx.fillText(`最佳 ${'★'.repeat(bestStars)}${'☆'.repeat(3 - bestStars)}`, W - 30, 61);
     ctx.textAlign = 'center'; ctx.font = '13px system-ui, sans-serif'; ctx.fillStyle = '#72573d';
     ctx.fillText('拖住奶蛙向左下拉，松手发射  ·  ↑↓ 调角度  ←→ 调力度  空格发射', W / 2, 538);
   }
@@ -538,7 +625,7 @@ export function createGame(env) {
     }
     drawSling(true);
     for (let i = 0; i < Math.max(0, shots - (hasReadyFrog ? 1 : 0)); i++) {
-      drawFrog(ctx, 61 + i * 50, GROUND - 23, 40, { expression: 'smug', rotation: Math.sin(time * 2 + i) * 0.04 });
+      drawFrog(ctx, 40 + i * 35, GROUND - 20, 34, { expression: 'smug', rotation: Math.sin(time * 2 + i) * 0.04 });
     }
     for (const p of particles) {
       ctx.save(); ctx.globalAlpha = Math.min(1, p.life * 2); ctx.translate(p.x, p.y); ctx.rotate(p.angle);
@@ -561,7 +648,9 @@ export function createGame(env) {
   }
 
   function getState() {
-    return { phase, score, shots, level: level + 1, targets: targetCount(),
+    return { phase, score, shots, level: level + 1, totalLevels: LEVELS.length,
+      levelName: LEVELS[level].name, maxShots: LEVELS[level].shots,
+      stars: earnedStars, progress: copyProgress(), targets: targetCount(),
       aimAngle: Math.round(aimAngle * 180 / Math.PI), aimPower,
       frog: frog ? { x: frog.x, y: frog.y, vx: frog.vx, vy: frog.vy } : null,
       bodies: bodies.filter(b => !b.removed).map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h, target: b.target, hp: b.hp })) };
