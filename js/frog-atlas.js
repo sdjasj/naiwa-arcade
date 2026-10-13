@@ -421,5 +421,216 @@ export const FROG_ATLASES = {
       1.05,
       1.05
     ]
+  },
+  "footwork": {
+    "file": "naiwa-footwork-v1.webp",
+    "frames": [
+      [
+        {
+          "x": 47,
+          "y": 30,
+          "width": 169,
+          "height": 216,
+          "left": 47,
+          "foot": 214
+        },
+        {
+          "x": 315,
+          "y": 33,
+          "width": 177,
+          "height": 210,
+          "left": 59,
+          "foot": 208
+        },
+        {
+          "x": 577,
+          "y": 33,
+          "width": 161,
+          "height": 211,
+          "left": 65,
+          "foot": 209
+        },
+        {
+          "x": 829,
+          "y": 30,
+          "width": 165,
+          "height": 214,
+          "left": 61,
+          "foot": 212
+        },
+        {
+          "x": 1092,
+          "y": 32,
+          "width": 165,
+          "height": 211,
+          "left": 68,
+          "foot": 209
+        },
+        {
+          "x": 1344,
+          "y": 32,
+          "width": 159,
+          "height": 212,
+          "left": 64,
+          "foot": 210
+        }
+      ],
+      [
+        {
+          "x": 49,
+          "y": 322,
+          "width": 166,
+          "height": 183,
+          "left": 49,
+          "foot": 181
+        },
+        {
+          "x": 328,
+          "y": 285,
+          "width": 159,
+          "height": 211,
+          "left": 72,
+          "foot": 209
+        },
+        {
+          "x": 583,
+          "y": 276,
+          "width": 155,
+          "height": 196,
+          "left": 71,
+          "foot": 194
+        },
+        {
+          "x": 831,
+          "y": 273,
+          "width": 158,
+          "height": 198,
+          "left": 63,
+          "foot": 196
+        },
+        {
+          "x": 1087,
+          "y": 293,
+          "width": 156,
+          "height": 212,
+          "left": 63,
+          "foot": 210
+        },
+        {
+          "x": 1341,
+          "y": 316,
+          "width": 164,
+          "height": 189,
+          "left": 61,
+          "foot": 187
+        }
+      ],
+      [
+        {
+          "x": 61,
+          "y": 573,
+          "width": 124,
+          "height": 157,
+          "left": 61,
+          "foot": 155
+        },
+        {
+          "x": 326,
+          "y": 575,
+          "width": 134,
+          "height": 157,
+          "left": 70,
+          "foot": 155
+        },
+        {
+          "x": 592,
+          "y": 571,
+          "width": 161,
+          "height": 162,
+          "left": 80,
+          "foot": 160
+        },
+        {
+          "x": 849,
+          "y": 573,
+          "width": 157,
+          "height": 159,
+          "left": 81,
+          "foot": 157
+        },
+        {
+          "x": 1094,
+          "y": 572,
+          "width": 124,
+          "height": 160,
+          "left": 70,
+          "foot": 158
+        },
+        {
+          "x": 1354,
+          "y": 572,
+          "width": 120,
+          "height": 163,
+          "left": 74,
+          "foot": 161
+        }
+      ],
+      [
+        {
+          "x": 69,
+          "y": 800,
+          "width": 123,
+          "height": 177,
+          "left": 69,
+          "foot": 175
+        },
+        {
+          "x": 324,
+          "y": 799,
+          "width": 130,
+          "height": 181,
+          "left": 68,
+          "foot": 179
+        },
+        {
+          "x": 574,
+          "y": 800,
+          "width": 183,
+          "height": 170,
+          "left": 62,
+          "foot": 168
+        },
+        {
+          "x": 842,
+          "y": 800,
+          "width": 182,
+          "height": 173,
+          "left": 74,
+          "foot": 171
+        },
+        {
+          "x": 1108,
+          "y": 801,
+          "width": 122,
+          "height": 180,
+          "left": 84,
+          "foot": 178
+        },
+        {
+          "x": 1341,
+          "y": 799,
+          "width": 130,
+          "height": 171,
+          "left": 61,
+          "foot": 169
+        }
+      ]
+    ],
+    "scales": [
+      1,
+      1,
+      1.25,
+      1.15
+    ]
   }
 };

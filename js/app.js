@@ -1,15 +1,15 @@
-import { createGame as createFlappy } from './games/flappy.js?v=4cbc52ac8bb1';
-import { createGame as createAngry, LEVELS } from './games/angry.js?v=4cbc52ac8bb1';
-import { createGame as createWhack } from './games/whack.js?v=4cbc52ac8bb1';
-import { createGame as createCatch } from './games/catch.js?v=4cbc52ac8bb1';
-import { createGame as createJump } from './games/jump.js?v=4cbc52ac8bb1';
-import { createGame as createMerge, FORMS, validSave } from './games/merge.js?v=4cbc52ac8bb1';
-import { createGame as createFighter } from './games/fighter.js?v=4cbc52ac8bb1';
-import { createGame as createSurvivor } from './games/survivor.js?v=4cbc52ac8bb1';
-import { createGame as createBomber } from './games/bomber.js?v=4cbc52ac8bb1';
-import { createTouchControls } from './controls.js?v=4cbc52ac8bb1';
-import { drawFrog, setFrogTime, frogReady, frogAnimationStatus, drawHero, drawCard } from './frog.js?v=4cbc52ac8bb1';
-import { GameAudio } from './audio.js?v=4cbc52ac8bb1';
+import { createGame as createFlappy } from './games/flappy.js?v=a0005206d7ba';
+import { createGame as createAngry, LEVELS } from './games/angry.js?v=a0005206d7ba';
+import { createGame as createWhack } from './games/whack.js?v=a0005206d7ba';
+import { createGame as createCatch } from './games/catch.js?v=a0005206d7ba';
+import { createGame as createJump } from './games/jump.js?v=a0005206d7ba';
+import { createGame as createMerge, FORMS, validSave } from './games/merge.js?v=a0005206d7ba';
+import { createGame as createFighter } from './games/fighter.js?v=a0005206d7ba';
+import { createGame as createSurvivor } from './games/survivor.js?v=a0005206d7ba';
+import { createGame as createBomber } from './games/bomber.js?v=a0005206d7ba';
+import { createTouchControls } from './controls.js?v=a0005206d7ba';
+import { drawFrog, setFrogTime, frogReady, frogAnimationStatus, drawHero, drawCard } from './frog.js?v=a0005206d7ba';
+import { GameAudio } from './audio.js?v=a0005206d7ba';
 
 const $ = id => document.getElementById(id);
 const definitions = {
@@ -19,7 +19,7 @@ const definitions = {
   catch: { factory: createCatch, name: '奶蛙接不住', title: '天上掉奶蛙了，接住！', message: '移动篮子接奶蛙，躲开黑色炸弹。', start: '开始接蛙', instruction: '接住快乐，放过炸弹。', summary: '挑战 8 波奶蛙雨，只有 3 条生命。接住金蛙和连续接取都有奖励；漏接奶蛙、接到炸弹会扣命。', keyboard: '← → / A D', keyboardDetail: '按住左右方向键，移动篮子', touch: '移动鼠标 / 触屏拖动', touchDetail: '篮子跟着你的手指或鼠标移动', quote: '“接住我！我肚子里装的全是快乐。”', status: '8 波挑战 · 3 条生命 · 接金蛙，躲炸弹' },
   jump: { factory: createJump, name: '奶蛙跳一跳', title: '蹲一下，跳出舒适圈。', message: '按住蓄力，松手起跳。看准落点再松手！', start: '开始蹦跶', instruction: '跳到中心，快乐加倍。', summary: '6 个阶段、30 座平台、3 条生命。蓄力条与落点预览帮你瞄准，落在中心有额外奖励；掉落后从最近的平台继续。', keyboard: '按住空格 → 松开', keyboardDetail: '蓄力决定距离，松开立即起跳', touch: '长按画面 → 松开', touchDetail: '看准绿色落点，稳稳跳到下一块', quote: '“肚子虽然重，但梦想很轻。”', status: '30 座平台 · 3 条生命 · 完美落点有奖励' },
   merge: { factory: createMerge, name: '奶蛙 2048', title: '从发呆，合到笑出声。', message: '滑动棋盘，将相同数字的奶蛙合成新形态。', start: '开始合成', instruction: '越合越大，越大越抽象。', summary: '从 2 的发呆蛙，一路合出 2048 狂笑蛙！相同数字才能合并，可撤销一步。进度自动保存，合出 2048 后还能继续冲蛙王。', keyboard: '方向键 / WASD', keyboardDetail: '整个棋盘向同一个方向移动', touch: '上下左右滑动', touchDetail: '也可用棋盘下方的方向按钮', quote: '“两个发呆的我，会变得更有精神吗？”', status: '滑动合并 · 撤销一步 · 自动保存 · 随时继续' },
-  fighter: { factory: createFighter, name: '奶蛙大乱斗', title: '肚子很软，拳头很硬。', message: '选好奶蛙上擂台！轻重拳配合防御，攒满怒气放大招。', start: '上台开打', instruction: '这一拳，打出下班的快乐。', summary: '三种角色各有特长，连续击败 6 个对手通关。近身出拳、跳跃躲招、按住防御，攒满怒气后释放必杀。也可挑战无限擂台，或同键盘双人三局两胜。', keyboard: 'AD / W S · J K L · 空格', keyboardDetail: '左右 / 跳蹲 · 轻拳、重拳、防御 · 大招', touch: '方向键 + 动作按钮', touchDetail: '可以同时按住移动和攻击按钮', quote: '“别打脸，我还要负责笑。”', status: '6 位对手 · 3 种角色 · 怒气必杀 · 支持双人' },
+  fighter: { factory: createFighter, name: '奶蛙大乱斗', title: '跳起来，也要笑着出拳。', message: '经典格斗规则：四键攻击、跑跳翻滚、方向防御与能量必杀。', start: '上台开打', instruction: '跳攻接地面，连段笑出声。', summary: '参考拳皇 98 ADVANCED：前后步法、四种跳跃、站蹲与空中四键攻击。低段蹲防，跳攻站防，命中后接必杀；积攒能量豆，爆气再放超必杀。闯关、无限、双人或练习室随你选。', keyboard: 'AD / W S · J U K I', keyboardDetail: '移动跳蹲 · 轻拳/轻脚/重拳/重脚；L 防御', touch: '方向 + 九个动作键', touchDetail: '同时按跳跃与攻击，向前后连点两次有不同步法', quote: '“别打脸，我还要负责笑。”', status: '98 风格 · 四键攻击 · 跳攻连段 · 练习室可看判定' },
   survivor: { factory: createSurvivor, name: '奶蛙幸存者', title: '笑到最后的，才是奶蛙。', message: '移动躲开围攻，自动攻击。拾取经验，选择升级，挑战首领！', start: '开始生存', instruction: '越被包围，笑得越大声。', summary: '攻击会自动瞄准敌人，你负责走位和拾取经验。升级时从 3 个强化中选择一个，搭配笑声、震波和旋转奶瓶。坚持 3 分钟并击败首领即可通关。', keyboard: 'WASD / 方向键 · 空格', keyboardDetail: '移动 · 冲刺；数字 1–3 选择升级', touch: '方向键 + 冲刺', touchDetail: '升级时点击画面中的强化卡片', quote: '“这么多人，都是来听我笑的吗？”', status: '自动攻击 · 升级三选一 · 3 分钟首领挑战' },
   bomber: { factory: createBomber, name: '奶蛙炸弹人', title: '放个笑气弹，记得跑。', message: '炸开箱子收集道具，躲开十字爆炸，清场后找到出口。', start: '开始拆箱', instruction: '笑声会传染，炸弹会连锁。', summary: '共 6 关迷宫，炸开木箱获得火力、容量和速度道具。清除对手再进入出口；放弹后及时绕到墙后，十字爆炸也会伤到自己。支持无限迷宫与同键盘双人对战。', keyboard: 'WASD / 方向键 · 空格', keyboardDetail: '移动 · 放置笑气弹', touch: '方向键 + 放炸弹', touchDetail: '可以边走边放弹，留好撤退路线', quote: '“我只是想让整个房间都笑起来。”', status: '6 关迷宫 · 连锁爆炸 · 道具强化 · 支持双人' },
 };
@@ -35,7 +35,7 @@ const endlessDescriptions = {
   bomber: { message: '奶蛙迷宫没有尽头，清场后沿出口继续前进！', summary: '迷宫持续生成，道具帮你越炸越远。消灭敌人后进入出口挑战下一关，注意连锁爆炸并留下安全退路。生命耗尽时结算。', status: '无限迷宫 · 连锁爆炸 · 清场后寻找出口' },
 };
 const duelDescriptions = {
-  fighter: { message: '同一把键盘，两只奶蛙。先赢两局的一方获胜！', summary: '同键盘双人，三局两胜。玩家 1 使用 WASD、J/K/L/空格；玩家 2 使用方向键、1/2/3/回车。两位都可以选择喜欢的奶蛙。', status: '同键盘双人 · 三局两胜 · 1P 左侧 / 2P 右侧' },
+  fighter: { message: '同一把键盘，两只奶蛙。99 秒一局，先赢两局！', summary: '玩家 1：WASD，J/U/K/I 四键攻击，L 防御、O 翻滚、H 投技、N 爆气、空格超必杀。玩家 2：方向键，1/4/2/5 四键攻击，3 防御、0 翻滚、6 投技、9 爆气、回车超必杀。', status: '同键盘双人 · 三局两胜 · 99 秒回合 · 四键攻击' },
   bomber: { message: '同键盘双人，互相放弹。先赢两局的一方获胜！', summary: '玩家 1 使用 WASD 移动、空格放弹；玩家 2 使用方向键移动、回车放弹。收集道具、绕开爆炸，三局两胜。', status: '同键盘双人 · 三局两胜 · 记得给自己留退路' },
 };
 const read = (key, fallback) => { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } };
@@ -44,7 +44,7 @@ const readJSON = (key, fallback) => { try { return JSON.parse(read(key, 'null'))
 const modes = ['easy', 'normal', 'hard'];
 const modeNames = { easy: '轻松', normal: '标准', hard: '挑战' };
 const difficulty = Object.fromEntries(['flappy', 'whack'].map(id => { const value = read(`naiwa:difficulty:${id}`, 'normal'); return [id, modes.includes(value) ? value : 'normal']; }));
-const allowedModes = id => duelDescriptions[id] ? ['classic', 'endless', 'duel'] : ['classic', 'endless'];
+const allowedModes = id => id === 'fighter' ? ['classic', 'endless', 'duel', 'training'] : duelDescriptions[id] ? ['classic', 'endless', 'duel'] : ['classic', 'endless'];
 const playModes = Object.fromEntries(ids.filter(id => id !== 'merge').map(id => { const value = read(`naiwa:mode:${id}`, 'classic'); return [id, allowedModes(id).includes(value) ? value : 'classic']; }));
 const characters = ['belly', 'speed', 'laugh'];
 let fighterCharacter = read('naiwa:character:fighter', 'belly'), opponentCharacter = read('naiwa:opponent:fighter', 'speed');
@@ -53,7 +53,9 @@ if (!characters.includes(opponentCharacter)) opponentCharacter = 'speed';
 let gridSize = read('naiwa:board:merge', '4') === '6' ? 6 : 4;
 const isEndless = id => playModes[id] === 'endless';
 const isDuel = id => playModes[id] === 'duel';
-const gameData = id => ({ ...definitions[id], ...(isEndless(id) ? endlessDescriptions[id] : isDuel(id) ? duelDescriptions[id] : {}) });
+const isTraining = id => id === 'fighter' && playModes[id] === 'training';
+const trainingDescription = { title: '练一下，下一拳更有把握。', message: '无限生命与能量，试试后退、跳攻、搓招和连段。', start: '开始练习', summary: '木桩不会主动攻击，可选择站防或蹲防。打开判定框，观察起手、有效攻击与收招；无限生命和能量让你放心练习。练习不计入最高分。', status: '练习室 · 无限生命/能量 · 可切木桩防御 · 显示判定' };
+const gameData = id => ({ ...definitions[id], ...(isTraining(id) ? trainingDescription : isEndless(id) ? endlessDescriptions[id] : isDuel(id) ? duelDescriptions[id] : {}) });
 const mergeSaveKey = () => `naiwa:save:merge${gridSize === 6 ? ':6' : ''}`;
 function loadProgress() {
   const stored = readJSON('naiwa:progress:angry', {});
@@ -78,6 +80,29 @@ const touchControls = createTouchControls($('action-controls'), {
   focus: () => canvas.focus({ preventScroll: true }),
 });
 let upgradeSignature = '';
+let trainingReadout = '';
+function renderTraining() {
+  if (!isTraining(activeId) || !game || state === 'ready') return;
+  const view = game.getState(), player = view.players?.[0];
+  if (!player) return;
+  if ($('training-boxes').checked) {
+    ctx.save(); ctx.lineWidth = 1.5;
+    for (const fighter of view.players) for (const [key, color, fill] of [['hurtbox', '#397d9e', '#78bade22'], ['hitbox', '#c45747', '#ed816740']]) {
+      const box = fighter[key];
+      if (!box || ![box.x, box.y, box.width, box.height].every(Number.isFinite)) continue;
+      ctx.strokeStyle = color; ctx.fillStyle = fill;
+      ctx.fillRect(box.x, box.y, box.width, box.height); ctx.strokeRect(box.x, box.y, box.width, box.height);
+    }
+    ctx.restore();
+  }
+  const labels = { idle: '待机', walk: '前进', backwalk: '后退', run: '跑动', jump: '跳跃', hop: '小跳', high: '高跳', hyper: '快速小跳', normal: '普通跳', landing: '落地收招', startup: '起手', active: '攻击有效', recovery: '收招', light: '轻拳', heavy: '重拳', lightKick: '轻脚', heavyKick: '重脚', 'air-light': '空中轻拳', 'air-heavy': '空中重拳', roll: '翻滚', backstep: '后撤步', throw: '投技', hurt: '受击', guard: '防御', crouch: '蹲下', knockout: '倒地', 'guard-impact': '防住', special: '超必杀', command: '指令必杀', blowback: '吹飞', knockdown: '倒地', super: '高跳', 'running-hop': '快速小跳' };
+  const motion = player.animation?.state || player.movement || 'idle';
+  const attack = player.attack ? `${labels[player.attack.type] || player.attack.name || '出招'} · ${labels[player.animation?.phase] || ''}` : labels[motion] || motion;
+  const arrows = { 1: '↙', 2: '↓', 3: '↘', 4: '←', 5: '·', 6: '→', 7: '↖', 8: '↑', 9: '↗' };
+  const log = (view.inputLogs?.[0] || []).filter(entry => entry.pressed !== false).slice(-7).map(entry => entry.label || entry.command || labels[entry.action] || entry.action || arrows[entry.direction] || '').filter(Boolean).join(' ');
+  const message = `当前：${attack}${player.airborne ? ' · 空中' : ''} · 连击 ${player.combo || 0} · 命中 ${view.stats?.hits?.[0] || 0}${log ? `\n输入：${log}` : ''}`;
+  if (message !== trainingReadout) { $('training-readout').textContent = message; trainingReadout = message; }
+}
 function refreshActionControls() {
   const choices = activeId === 'survivor' && state === 'playing' ? game?.getUpgrades?.() || [] : [];
   touchControls.setEnabled(state === 'playing' && choices.length === 0);
@@ -109,6 +134,7 @@ function setSoundUI() {
   $('sound-icon').textContent = soundEnabled ? '♫' : '♪';
 }
 function refreshBest() {
+  if (isTraining(activeId)) { $('best-score').textContent = '—'; document.querySelector('.best-score div>span').textContent = '练习室 · 不计成绩'; return; }
   $('best-score').replaceChildren(document.createTextNode(`${bestFor(activeId)} `), Object.assign(document.createElement('small'), { textContent: '分' }));
   const label = activeId === 'merge' ? `${gridSize}×${gridSize}` : `${isEndless(activeId) ? '无限' : isDuel(activeId) ? '双人' : '经典'}${definitions[activeId].modes ? ` · ${modeNames[difficulty[activeId]]}` : ''}`;
   document.querySelector('.best-score div>span').textContent = `${label} · 我的最高纪录`;
@@ -137,7 +163,7 @@ function renderLevels() {
 }
 function setScore(value) {
   score = Math.max(0, Math.floor(value)); $('live-score').textContent = String(score);
-  if (score > bestFor(activeId)) { write(bestKey(activeId), score); refreshBest(); }
+  if (!isTraining(activeId) && score > bestFor(activeId)) { write(bestKey(activeId), score); refreshBest(); }
   refreshPuzzleControls();
 }
 function showOverlay(kind, result) {
@@ -192,19 +218,24 @@ function selectGame(id, scroll = false, levelOverride) {
   $('game-select').value = id; $('difficulty-setting').hidden = !data.modes;
   $('difficulty-select').value = difficulty[id] || 'normal';
   $('play-mode-setting').hidden = id === 'merge';
-  $('play-mode-select').replaceChildren(...allowedModes(id).map(value => Object.assign(document.createElement('option'), { value, textContent: { classic: '经典模式', endless: '∞ 无限模式', duel: '双人（同键盘）' }[value] })));
+  $('play-mode-select').replaceChildren(...allowedModes(id).map(value => Object.assign(document.createElement('option'), { value, textContent: { classic: '经典模式', endless: '∞ 无限模式', duel: '双人（同键盘）', training: '练习室 · 自由出招' }[value] })));
   $('play-mode-select').value = playModes[id] || 'classic';
-  $('fighter-setting').hidden = id !== 'fighter'; $('opponent-setting').hidden = id !== 'fighter' || !isDuel(id);
+  $('fighter-setting').hidden = id !== 'fighter'; $('opponent-setting').hidden = id !== 'fighter' || (!isDuel(id) && !isTraining(id));
+  $('opponent-setting').firstChild.nodeValue = isTraining(id) ? '木桩角色 ' : '玩家二 ';
+  $('player-window').classList.toggle('fighter-mode', id === 'fighter');
+  $('fighter-guide').hidden = id !== 'fighter'; $('fighter-training').hidden = !isTraining(id);
+  trainingReadout = ''; $('training-readout').textContent = '准备试试：向前跳 → 重脚 → 落地轻拳。';
   $('fighter-character').value = fighterCharacter; $('opponent-character').value = opponentCharacter;
   $('duel-guide').hidden = !isDuel(id); $('duel-guide').textContent = isDuel(id) ? duelDescriptions[id].summary : '';
   $('board-setting').hidden = id !== 'merge'; $('board-size-select').value = String(gridSize);
   $('mode-note').textContent = id === 'merge' ? '两种棋盘分别存档、分别记录最高分' : isDuel(id) ? '两人共用一把键盘，三局两胜' : isEndless(id) ? '无限续关，挑战生存纪录 · 独立记分' : data.modes ? '每种难度独立记录最高分' : id === 'angry' ? '通关保存星级，解锁下一关' : '放轻松，奶蛙替你努力';
+  if (isTraining(id)) $('mode-note').textContent = '无限生命与能量 · 自由练习 · 不计成绩';
   $('puzzle-controls').hidden = id !== 'merge'; levelPanel.hidden = id !== 'angry' || isEndless(id); formsPanel.hidden = id !== 'merge';
   canvas.setAttribute('aria-label', `${data.name}游戏区域。${data.message}`);
   document.querySelectorAll('[data-game]').forEach(button => { const selected = button.dataset.game === id; button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected)); });
   const saveKey = mergeSaveKey();
   game = data.factory({
-    canvas, ctx, ...size, drawFrog, audio, difficulty: difficulty[id] || 'normal', progress, endless: isEndless(id), multiplayer: isDuel(id), character: fighterCharacter, opponentCharacter: isDuel(id) ? opponentCharacter : undefined, gridSize,
+    canvas, ctx, ...size, drawFrog, audio, difficulty: difficulty[id] || 'normal', progress, endless: isEndless(id), multiplayer: isDuel(id), training: isTraining(id), character: fighterCharacter, opponentCharacter: isDuel(id) || isTraining(id) ? opponentCharacter : undefined, gridSize,
     savedGame: id === 'merge' ? readJSON(saveKey, null) : null,
     onScore: setScore,
     onStatus: text => { $('game-status').textContent = text; if (activeId === 'angry' && game) renderLevels(); },
@@ -222,7 +253,8 @@ function startGame({ restart = false } = {}) {
   if (restart && activeId === 'angry' && !isEndless(activeId) && oldState !== 'ready') selectedLevel = game.getState().level;
   state = 'playing';
   if (!restart && oldState === 'ended' && lastResult?.canContinue) game.continueGame();
-  else if (restart || oldState !== 'paused') { gameTime = 0; game.start({ level: activeId === 'angry' && !isEndless(activeId) ? selectedLevel : 1, fresh: restart || oldState === 'ended', difficulty: difficulty[activeId] || 'normal', endless: isEndless(activeId), multiplayer: isDuel(activeId), character: fighterCharacter, opponentCharacter: isDuel(activeId) ? opponentCharacter : undefined }); }
+  else if (restart || oldState !== 'paused') { gameTime = 0; game.start({ level: activeId === 'angry' && !isEndless(activeId) ? selectedLevel : 1, fresh: restart || oldState === 'ended', difficulty: difficulty[activeId] || 'normal', endless: isEndless(activeId), multiplayer: isDuel(activeId), training: isTraining(activeId), character: fighterCharacter, opponentCharacter: isDuel(activeId) || isTraining(activeId) ? opponentCharacter : undefined }); }
+  if (isTraining(activeId)) game.setTrainingGuard?.($('training-guard').value);
   if (state === 'ended') return;
   lastResult = null; $('game-overlay').hidden = true; $('pause-button').disabled = false;
   $('pause-button').textContent = 'Ⅱ'; $('pause-button').setAttribute('aria-label', '暂停游戏');
@@ -274,6 +306,9 @@ $('difficulty-select').addEventListener('change', event => { difficulty[activeId
 $('play-mode-select').addEventListener('change', event => { playModes[activeId] = allowedModes(activeId).includes(event.target.value) ? event.target.value : 'classic'; write(`naiwa:mode:${activeId}`, playModes[activeId]); selectGame(activeId); });
 $('fighter-character').addEventListener('change', event => { if (characters.includes(event.target.value)) { fighterCharacter = event.target.value; write('naiwa:character:fighter', fighterCharacter); selectGame('fighter'); } });
 $('opponent-character').addEventListener('change', event => { if (characters.includes(event.target.value)) { opponentCharacter = event.target.value; write('naiwa:opponent:fighter', opponentCharacter); selectGame('fighter'); } });
+$('training-guard').addEventListener('change', () => { if (isTraining(activeId)) game?.setTrainingGuard?.($('training-guard').value); canvas.focus({ preventScroll: true }); });
+$('training-boxes').addEventListener('change', () => canvas.focus({ preventScroll: true }));
+$('training-reset').addEventListener('click', () => { if (isTraining(activeId)) startGame({ restart: true }); });
 $('board-size-select').addEventListener('change', event => { gridSize = event.target.value === '6' ? 6 : 4; write('naiwa:board:merge', gridSize); selectGame('merge'); });
 $('start-button').addEventListener('click', () => startGame());
 $('pause-button').addEventListener('click', () => state === 'paused' ? startGame() : pause());
@@ -313,6 +348,7 @@ function frame(now) {
     while (accumulator >= 1 / 120 && state === 'playing') { gameTime += 1 / 120; game.update(1 / 120); accumulator -= 1 / 120; }
   } else if (state === 'ready' && !reducedMotion) gameTime += dt;
   setFrogTime(gameTime); game.render(gameTime);
+  renderTraining();
   refreshActionControls();
   if (!document.hidden && heroVisible) { setFrogTime(reducedMotion ? .3 : now / 1000); drawHero(heroCtx, reducedMotion ? .3 : now / 1000); }
   requestAnimationFrame(frame);

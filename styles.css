@@ -59,6 +59,19 @@
 .action-buttons button.held { background: #547447; }
 .action-hint { white-space: pre-line; text-align: center; color: #8c987c; font-size: 10px; line-height: 1.9; }
 .duel-guide { margin: 0; padding: 10px 16px; border-top: 1px solid #e4e9d7; color: #7c6a80; background: #f5f0f6; font-size: 11px; line-height: 1.8; }
+.fighter-controls .action-buttons { grid-template-columns: repeat(3, minmax(0, 1fr)); width: 230px; }
+.fighter-controls .action-buttons button { min-width: 0; }
+.fighter-guide { border-top: 1px solid #e4e9d7; background: #faf9ef; font-size: 11px; }
+.fighter-guide summary { cursor: pointer; padding: 12px 16px; color: #65764d; font-weight: 700; }
+.fighter-guide-content { padding: 0 16px 12px; line-height: 1.8; }
+.fighter-guide-content p { margin: 6px 0; }
+.fighter-guide-note { color: #8c937c; font-size: 10px; }
+.fighter-training { padding: 12px 16px; background: #f0f5e9; border-top: 1px solid #dae4cf; }
+.training-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 11px; }
+.training-tools label { display: flex; gap: 5px; align-items: center; }
+.training-tools select, .training-tools button { font: inherit; border: 1px solid #cbd8bd; border-radius: 5px; background: #fffdf6; padding: 5px 7px; }
+.fighter-training p, .fighter-training output { font-size: 10px; color: #6d7e5e; line-height: 1.8; margin: 8px 0 0; display: block; }
+.fighter-training output { white-space: pre-line; }
 .upgrade-panel { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: center; padding: 24px; background: #f5f1df; overflow: auto; }
 .upgrade-heading { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin: 0 auto 12px; width: 100%; max-width: 640px; }
 .upgrade-heading strong { font-size: 13px; color: #6d6239; }
@@ -69,6 +82,18 @@
 .upgrade-options b { display: block; font-size: 12px; margin-bottom: 7px; }
 .upgrade-options span { display: block; font-size: 10px; line-height: 1.7; color: #83906a; }
 .player-window:fullscreen .action-controls, .player-window:fullscreen .upgrade-panel, .player-window:fullscreen .duel-guide { flex-shrink: 0; }
+.player-window:fullscreen.fighter-mode .fighter-guide,
+.player-window:fullscreen.fighter-mode .fighter-training,
+.player-window:fullscreen.fighter-mode .duel-guide { display: none; }
+@media (max-height: 600px) and (min-aspect-ratio: 1/1) {
+  .player-window:fullscreen.fighter-mode { display: grid; grid-template-columns: minmax(0, 1fr) 236px; grid-template-rows: 40px minmax(0, 1fr) 32px; height: 100dvh; }
+  .player-window:fullscreen.fighter-mode .player-toolbar { grid-area: 1 / 1 / 2 / 3; height: 40px; }
+  .player-window:fullscreen.fighter-mode .canvas-stage { grid-area: 2 / 1; min-width: 0; }
+  .player-window:fullscreen.fighter-mode .action-controls { grid-area: 2 / 2; min-height: 0; flex-direction: column; justify-content: center; gap: 8px; padding: 8px; overflow: auto; border-left: 1px solid #e4e9d7; border-top: 0; }
+  .player-window:fullscreen.fighter-mode .action-hint { display: none; }
+  .player-window:fullscreen.fighter-mode .action-buttons { width: 100%; flex: 0; }
+  .player-window:fullscreen.fighter-mode .player-footer { grid-area: 3 / 1 / 4 / 3; height: 32px; }
+}
 @media(max-width:760px) {
   .game-sidebar:has(.level-panel:not([hidden])), .game-sidebar:has(.forms-panel:not([hidden])) { grid-template-columns: 1fr 1fr; }
   .game-settings { gap: 12px; }
@@ -97,6 +122,12 @@
   .action-buttons { grid-template-columns: repeat(2, 65px); gap: 5px; }
   .action-controls button { padding: 5px 7px; }
   .action-hint { display: none; }
+  .fighter-controls .action-buttons { width: auto; flex: 1; gap: 4px; }
+  .fighter-controls .action-dpad { flex-shrink: 0; }
+  .fighter-controls .action-buttons button { padding: 5px 3px; }
+  .fighter-controls .action-buttons strong { font-size: 11px; }
+  .fighter-controls .action-buttons small { font-size: 8px; }
+  .fighter-training { padding: 10px; }
   .duel-guide { font-size: 10px; padding: 9px 12px; }
   .upgrade-panel { padding: 12px; justify-content: start; }
   .upgrade-heading { align-items: start; flex-direction: column; gap: 4px; margin-bottom: 8px; }
