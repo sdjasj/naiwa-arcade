@@ -1,5 +1,5 @@
-import { FROG_ATLASES } from './frog-atlas.js?v=a0005206d7ba';
-import { sampleFrogAnimation } from './frog-animation.js?v=a0005206d7ba';
+import { FROG_ATLASES } from './frog-atlas.js?v=8e78f42c12f7';
+import { sampleFrogAnimation } from './frog-animation.js?v=8e78f42c12f7';
 
 // Meme sprite provided by NaiLoong / linalg. New action frames are generated
 // from that identity reference; see assets/ATTRIBUTION.md.
