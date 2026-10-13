@@ -1,0 +1,19 @@
+{
+  "name": "naiwa-arcade",
+  "version": "1.0.0",
+  "description": "大笑奶蛙摸鱼乐园：三款可在线游玩的网页小游戏",
+  "scripts": {
+    "dev": "python3 -m http.server 8080 --bind 127.0.0.1",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/game-logic.test.js",
+    "test:browser": "playwright test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "^1.64.0"
+  },
+  "private": true
+}
