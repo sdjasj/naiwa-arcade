@@ -1,15 +1,15 @@
-import { createGame as createFlappy } from './games/flappy.js?v=ff40e92ab0ff';
-import { createGame as createAngry, LEVELS } from './games/angry.js?v=ff40e92ab0ff';
-import { createGame as createWhack } from './games/whack.js?v=ff40e92ab0ff';
-import { createGame as createCatch } from './games/catch.js?v=ff40e92ab0ff';
-import { createGame as createJump } from './games/jump.js?v=ff40e92ab0ff';
-import { createGame as createMerge, FORMS, validSave } from './games/merge.js?v=ff40e92ab0ff';
-import { createGame as createFighter } from './games/fighter.js?v=ff40e92ab0ff';
-import { createGame as createSurvivor } from './games/survivor.js?v=ff40e92ab0ff';
-import { createGame as createBomber } from './games/bomber.js?v=ff40e92ab0ff';
-import { createTouchControls } from './controls.js?v=ff40e92ab0ff';
-import { drawFrog, setFrogTime, frogReady, drawHero, drawCard } from './frog.js?v=ff40e92ab0ff';
-import { GameAudio } from './audio.js?v=ff40e92ab0ff';
+import { createGame as createFlappy } from './games/flappy.js?v=4cbc52ac8bb1';
+import { createGame as createAngry, LEVELS } from './games/angry.js?v=4cbc52ac8bb1';
+import { createGame as createWhack } from './games/whack.js?v=4cbc52ac8bb1';
+import { createGame as createCatch } from './games/catch.js?v=4cbc52ac8bb1';
+import { createGame as createJump } from './games/jump.js?v=4cbc52ac8bb1';
+import { createGame as createMerge, FORMS, validSave } from './games/merge.js?v=4cbc52ac8bb1';
+import { createGame as createFighter } from './games/fighter.js?v=4cbc52ac8bb1';
+import { createGame as createSurvivor } from './games/survivor.js?v=4cbc52ac8bb1';
+import { createGame as createBomber } from './games/bomber.js?v=4cbc52ac8bb1';
+import { createTouchControls } from './controls.js?v=4cbc52ac8bb1';
+import { drawFrog, setFrogTime, frogReady, frogAnimationStatus, drawHero, drawCard } from './frog.js?v=4cbc52ac8bb1';
+import { GameAudio } from './audio.js?v=4cbc52ac8bb1';
 
 const $ = id => document.getElementById(id);
 const definitions = {
@@ -319,5 +319,5 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 if (new URLSearchParams(location.search).has('debug')) {
-  Object.defineProperty(window, '__arcade', { value: { getState: (options = {}) => ({ id: activeId, state, score, soundEnabled, difficulty: difficulty[activeId], playMode: playModes[activeId], fighterCharacter, opponentCharacter, gridSize, selectedLevel, progress, game: game.getState(options) }) } });
+  Object.defineProperty(window, '__arcade', { value: { getState: (options = {}) => ({ id: activeId, state, score, soundEnabled, animations: frogAnimationStatus(), difficulty: difficulty[activeId], playMode: playModes[activeId], fighterCharacter, opponentCharacter, gridSize, selectedLevel, progress, game: game.getState(options) }) } });
 }

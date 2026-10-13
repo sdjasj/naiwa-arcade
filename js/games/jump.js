@@ -229,6 +229,7 @@ export function createGame(env) {
     lastLanding = { platformIndex: checkpoint, x: landingX, perfect, points };
     onScore?.(score);
     sound(perfect ? 'score' : 'pop');
+    if (perfect) sound('laugh:combo');
     burst(landingX, platform.top, perfect ? `完美！ +${points}` : `稳稳落地 +${points}`);
     // Every successful platform is a checkpoint, with a centered starting position.
     maintainPlatformWindow();
@@ -237,6 +238,7 @@ export function createGame(env) {
       phase = 'cleared';
       phaseTime = 0;
       sound('win');
+      sound('laugh:victory');
       status('六关全通！奶蛙宣布：肚子重，也能跳得远！');
     } else if (checkpoint % 5 === 0) {
       sound('win');

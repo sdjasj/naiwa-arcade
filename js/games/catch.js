@@ -138,6 +138,7 @@ export function createGame(env) {
       onScore?.(score);
       label(`八波全接完！+${bonus}`, width / 2, 230, '#987026');
       sound('win');
+      sound('laugh:victory');
       status('八波挑战完成！奶蛙快递，今日全部送达。');
     } else {
       sound('laugh');
@@ -180,7 +181,7 @@ export function createGame(env) {
     burst(basketX, basketY - 30, item.kind === 'gold' ? '#e9b43b' : '#b8cd76');
     label(`${item.kind === 'gold' ? '金蛙 ' : ''}+${points}`, basketX, basketY - 77, item.kind === 'gold' ? '#a3791b' : '#385d45');
     sound(item.kind === 'gold' || combo % 4 === 0 ? 'score' : 'pop');
-    if (combo % 4 === 0) status(`${combo} 连接！每只奶蛙额外 +${bonus} 分。`);
+    if (combo % 4 === 0) { sound('laugh:combo'); status(`${combo} 连接！每只奶蛙额外 +${bonus} 分。`); }
   }
 
   function updateEffects(dt) {

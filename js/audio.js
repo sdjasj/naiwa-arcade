@@ -1,5 +1,21 @@
 // All sounds stay local. No AudioContext is created before unlock(), which is
 // called by the application from a click, touch, or keyboard interaction.
+// Durations are wall-clock seconds; offsets refer to our bundled 15.7s laugh.
+// One laugh voice is shared across games, with no delayed playback queue.
+const LAUGHS = {
+  laugh:           { priority: 1, cooldown: .85, duration: 1.2, offsets: [.08, 3.3, 6.4, 9.5], rate: 1, volume: .44, beats: 5, pitch: 175 },
+  'laugh:attack':  { priority: 1, cooldown: .46, duration: .32, offsets: [.08, 3.3, 9.5], rate: 1.08, volume: .32, beats: 2, pitch: 205 },
+  'laugh:dash':    { priority: 1, cooldown: .75, duration: .36, offsets: [6.4, 9.5], rate: 1.12, volume: .32, beats: 2, pitch: 220 },
+  'laugh:guard':   { priority: 2, cooldown: .9, duration: .43, offsets: [1.2, 4.5, 10.3], rate: .94, volume: .35, beats: 2, pitch: 150 },
+  'laugh:hurt':    { priority: 3, cooldown: .95, duration: .67, offsets: [1.2, 4.4, 11.4], rate: .9, volume: .4, beats: 3, pitch: 145 },
+  'laugh:start':   { priority: 4, cooldown: 2, duration: .92, offsets: [.08, 6.4], rate: 1.01, volume: .4, beats: 4, pitch: 180 },
+  'laugh:combo':   { priority: 4, cooldown: 1.1, duration: .98, offsets: [3.3, 9.5], rate: 1.1, volume: .42, beats: 5, pitch: 210 },
+  'laugh:special': { priority: 5, cooldown: 1.2, duration: 1.17, offsets: [6.4, 12.2], rate: .95, volume: .46, beats: 5, pitch: 165 },
+  'laugh:boss':    { priority: 6, cooldown: 2.2, duration: 1.52, offsets: [9.5, 12.2], rate: .89, volume: .46, beats: 6, pitch: 130 },
+  'laugh:upgrade': { priority: 7, cooldown: 1.7, duration: 1.38, offsets: [3.3, 6.4], rate: 1.08, volume: .44, beats: 6, pitch: 200 },
+  'laugh:victory': { priority: 8, cooldown: 2.5, duration: 2.05, offsets: [.08, 9.5], rate: 1.01, volume: .48, beats: 8, pitch: 190 },
+};
+
 export class GameAudio {
   constructor(enabled = true) {
     this.enabled = Boolean(enabled);
@@ -10,6 +26,8 @@ export class GameAudio {
     this.sources = new Set();
     this.laughSource = null;
     this.lastLaugh = -Infinity;
+    this.laughHistory = new Map();
+    this.laughVariations = new Map();
     this.loadPromise = null;
     this.unlockPromise = null;
   }
@@ -21,6 +39,7 @@ export class GameAudio {
       if (!this.context || this.context.state === 'closed') {
         const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
         if (!AudioContextClass) return false;
+        this.stopAll();
         this.context = new AudioContextClass();
         this.master = this.context.createGain();
         this.master.gain.value = 0.6;
@@ -92,6 +111,7 @@ export class GameAudio {
     for (const voice of [...this.sources]) this.release(voice);
     this.laughSource = null;
     this.lastLaugh = -Infinity;
+    this.laughHistory.clear();
   }
 
   tone(startFrequency, endFrequency, duration, volume = 0.12, delay = 0, type = 'sine') {
@@ -144,82 +164,114 @@ export class GameAudio {
     }
   }
 
-  laugh() {
+  laugh(kind = 'laugh') {
     const context = this.context;
+    const profile = Object.hasOwn(LAUGHS, kind) ? LAUGHS[kind] : null;
+    if (!profile || !this.enabled || !context || context.state !== 'running' || !this.master) return false;
     const at = context.currentTime;
-    if (at - this.lastLaugh < 0.7) return false;
+    // onended may arrive late in a suspended/background tab. Audio time remains
+    // the authority, and every accepted request still has at most one voice.
+    if (this.laughSource && at >= this.laughSource.endsAt) this.release(this.laughSource);
+    const active = this.laughSource;
+    if (at - (this.laughHistory.get(kind) ?? -Infinity) < profile.cooldown) return false;
+    if (active && profile.priority <= active.priority) return false;
+    // A victory/upgrade can replace a small laugh immediately, even in the same
+    // frame. Equal/lower priority chatter always respects the global limiter.
+    if (at - this.lastLaugh < .24 && (!active || profile.priority <= active.priority)) return false;
+    if (active) this.release(active);
+    const variation = this.laughVariations.get(kind) || 0;
+    let voice;
+    try {
+      voice = this.laughBuffer?.duration > .05 ? this.sampleLaugh(at, profile, variation) : null;
+      if (!voice) voice = this.syntheticLaugh(at, profile, variation);
+    } catch { return false; }
+    if (!voice) return false;
+    voice.priority = profile.priority;
+    voice.event = kind;
+    this.laughSource = voice;
     this.lastLaugh = at;
-    if (this.laughSource) this.release(this.laughSource);
+    this.laughHistory.set(kind, at);
+    this.laughVariations.set(kind, variation + 1);
+    return true;
+  }
 
-    if (!this.laughBuffer) {
-      this.syntheticLaugh(at);
-      return true;
-    }
-
-    const source = context.createBufferSource();
-    const gain = context.createGain();
-    const rate = 0.94 + Math.random() * 0.12;
-    const possibleOffsets = [0.08, 3.3, 6.4, 9.5, 12.2];
-    const offset = Math.min(possibleOffsets[Math.floor(Math.random() * possibleOffsets.length)], Math.max(0, this.laughBuffer.duration - 1.65));
-    const duration = Math.min(1.42, (this.laughBuffer.duration - offset) / rate);
+  sampleLaugh(at, profile, variation) {
+    const context = this.context;
+    const source = context.createBufferSource(), gain = context.createGain();
+    const rate = profile.rate + (variation % 3 - 1) * .018;
+    // Clamp against the *source* duration, including the playback-rate change.
+    const duration = Math.min(profile.duration, this.laughBuffer.duration / rate);
+    const offset = Math.min(profile.offsets[variation % profile.offsets.length], Math.max(0, this.laughBuffer.duration - duration * rate));
     source.buffer = this.laughBuffer;
     source.playbackRate.value = rate;
     gain.gain.setValueAtTime(0.0001, at);
-    gain.gain.linearRampToValueAtTime(0.48, at + Math.min(0.016, duration / 4));
-    gain.gain.setValueAtTime(0.48, at + Math.max(duration * 0.6, duration - 0.07));
+    // Gentle volume pulses keep the sample recognizable while giving each cue
+    // a different ha-ha rhythm. A single source also makes interruption exact.
+    for (let i = 0; i < profile.beats; i += 1) {
+      const beat = at + duration * i / profile.beats;
+      const width = duration / profile.beats;
+      gain.gain.linearRampToValueAtTime(profile.volume, beat + Math.min(.014, width * .2));
+      gain.gain.setValueAtTime(profile.volume, beat + width * .58);
+      gain.gain.linearRampToValueAtTime(profile.volume * .65, beat + width * .84);
+    }
     gain.gain.linearRampToValueAtTime(0.0001, at + duration);
     source.connect(gain);
     gain.connect(this.master);
     const voice = this.track(source, [gain], 'laugh');
-    this.laughSource = voice;
+    voice.endsAt = at + duration;
     try {
       source.start(at, offset, duration * rate);
       source.stop(at + duration + 0.02);
     } catch {
       this.release(voice);
+      return null;
     }
-    return true;
+    return voice;
   }
 
-  syntheticLaugh(at) {
+  syntheticLaugh(at, profile = LAUGHS.laugh, variation = 0) {
     const context = this.context;
     const oscillator = context.createOscillator();
     const filter = context.createBiquadFilter();
     const gain = context.createGain();
     oscillator.type = 'sawtooth';
     filter.type = 'bandpass';
-    filter.frequency.value = 740;
+    filter.frequency.value = 680 * profile.rate;
     filter.Q.value = 0.9;
     gain.gain.setValueAtTime(0.0001, at);
-    for (let i = 0; i < 5; i += 1) {
-      const beat = at + i * 0.14;
-      const pitch = 175 - i * 9 + Math.random() * 20;
+    for (let i = 0; i < profile.beats; i += 1) {
+      const width = profile.duration / profile.beats;
+      const beat = at + i * width;
+      const pitch = profile.pitch - i * 4 + (variation % 3 - 1) * 5;
       oscillator.frequency.setValueAtTime(pitch, beat);
-      oscillator.frequency.exponentialRampToValueAtTime(pitch * 0.67, beat + 0.095);
+      oscillator.frequency.exponentialRampToValueAtTime(pitch * .67, beat + width * .67);
       gain.gain.setValueAtTime(0.0001, beat);
-      gain.gain.linearRampToValueAtTime(0.15 - i * 0.012, beat + 0.012);
-      gain.gain.exponentialRampToValueAtTime(0.0001, beat + 0.115);
+      gain.gain.linearRampToValueAtTime(profile.volume * .32 * (1 - i * .025), beat + Math.min(.012, width * .15));
+      gain.gain.exponentialRampToValueAtTime(0.0001, beat + width * .85);
     }
     oscillator.connect(filter);
     filter.connect(gain);
     gain.connect(this.master);
     const voice = this.track(oscillator, [filter, gain], 'laugh');
-    this.laughSource = voice;
+    voice.endsAt = at + profile.duration;
     try {
       oscillator.start(at);
-      oscillator.stop(at + 0.71);
+      oscillator.stop(at + profile.duration + .02);
     } catch {
       this.release(voice);
+      return null;
     }
+    return voice;
   }
 
   play(kind) {
     if (!this.enabled || !this.context || this.context.state !== 'running' || !this.master) return false;
     try {
       // Bound voices even if a held pointer produces a flood of input events.
-      if (kind !== 'laugh' && this.sources.size > 28) return false;
+      if (Object.hasOwn(LAUGHS, kind)) return this.laugh(kind);
+      const cost = kind === 'win' ? 4 : ['hit', 'score', 'launch'].includes(kind) ? 2 : 1;
+      if (this.sources.size + cost > 32) return false;
       switch (kind) {
-        case 'laugh': return this.laugh();
         case 'flap': this.tone(520, 170, 0.095, 0.1); break;
         case 'hit':
           this.tone(155, 42, 0.19, 0.17, 0, 'triangle');

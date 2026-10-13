@@ -219,7 +219,7 @@ export function createGame(env) {
         }
       }
       explosions.push({ id: bomb.id, ownerId: bomb.ownerId, cells, life: FIRE_TIME });
-      sound('hit'); sound('laugh');
+      sound('hit'); sound('laugh:attack');
     }
   }
 
@@ -277,7 +277,7 @@ export function createGame(env) {
   function hurt(player) {
     if (!player.alive || player.invincible > 0) return;
     player.lives -= 1; player.invincible = 2; player.held = [];
-    sound('laugh');
+    sound('laugh:hurt');
     if (player.lives <= 0) { player.alive = false; return; }
     player.x = player.playerIndex === 1 ? 11 : 1;
     player.y = player.playerIndex === 1 ? 7 : 1;
@@ -306,11 +306,13 @@ export function createGame(env) {
         winner = wins[lastRoundWinner] >= 2 ? lastRoundWinner : null;
         status(`${lastRoundWinner + 1}P 赢下本局！比分 ${wins[0]} : ${wins[1]}${winner !== null ? ' · 比赛结束' : ' · 下一局马上开始'}。`);
         sound('win');
+        sound('laugh:victory');
       } else { draws += 1; status('两只奶蛙同时笑趴了！本局重赛，不计分。'); }
     } else if (!multiplayer && !players[0].alive) {
       phase = 'ending'; phaseTime = 0; cancelInput(); status('三颗心都笑没了。奶蛙说：这次算热身。');
     } else if (!multiplayer && activeEnemies().length === 0 && at(players[0], exit)) {
       phase = 'levelclear'; phaseTime = 0; cancelInput(); addScore(200 + players[0].lives * 50); sound('win');
+      sound('laugh:victory');
       status(!endless && level === 6 ? '六关全通！笑气拆迁队正式毕业。' : `第 ${level} 关通过！奖励 1 心，准备下一座迷宫。`);
     }
   }

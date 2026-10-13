@@ -75,7 +75,81 @@ export function createGame(env) {
       facing: id === 0 ? 1 : -1, hp: maxHp, maxHp, rage: 0, guard: 100,
       attack: null, buffered: null, hurtTime: 0, squash: 0, blockedFlash: 0,
       combo: 0, bestCombo: 0, lastHit: -10, hits: 0, damage: 0,
+      visualHitId: 0,
+      animation: { name: 'idle', key: 'idle', state: 'idle', phase: 'loop', time: 0, progress: null,
+        previous: null, blend: 1, transitions: 0, scaleX: 1, scaleY: 1, rotation: 0,
+        offsetX: 0, impulse: 0, impulseAge: 1, grounded: true, landing: 0 },
       damageScale: id === 1 && !multiplayer ? 1 + challenge() * 0.025 : 1 };
+  }
+
+  // Animation follows the simulation clock, so pausing and hit-stop freeze both
+  // fighters on the same frame. It never changes movement or combat timing.
+  function animationFor(player) {
+    if (player.hp <= 0) return { name: 'hurt', key: 'knockout', state: 'knockout', phase: 'down' };
+    if ((phase === 'roundover' || phase === 'ended') && player.id === roundWinner) {
+      return { name: 'laugh', key: 'victory', state: 'victory', phase: 'loop' };
+    }
+    if (player.hurtTime > 0) {
+      const guarded = player.blockedFlash > 0;
+      return { name: guarded ? 'guard' : 'hurt', key: `impact:${player.visualHitId}`,
+        state: guarded ? 'guard-impact' : 'hurt', phase: 'impact' };
+    }
+    if (player.attack) {
+      const attack = player.attack;
+      const special = attack.type === 'special';
+      const name = special ? player.character === 'speed' ? 'dash' : player.character === 'laugh' ? 'laugh' : 'heavy' : attack.type;
+      const attackPhase = attack.age < attack.startup ? 'startup' : attack.age < attack.startup + attack.active ? 'active' : 'recovery';
+      return { name, key: `attack:${attack.id}`, state: special ? 'special' : attack.type, phase: attackPhase };
+    }
+    if (!isGrounded(player) || player.vy < 0) return { name: 'dash', key: 'jump', state: 'jump', phase: player.vy < 0 ? 'ascent' : 'descent' };
+    if (isBlocking(player)) return { name: 'guard', key: 'guard', state: 'guard', phase: 'hold' };
+    if (isCrouching(player)) return { name: 'guard', key: 'crouch', state: 'crouch', phase: 'hold' };
+    const moving = Math.abs(player.vx) > (player.animation.state === 'run' ? 18 : 40);
+    return { name: moving ? 'run' : 'idle', key: moving ? 'run' : 'idle', state: moving ? 'run' : 'idle', phase: 'loop' };
+  }
+
+  function updateAnimation(player, dt) {
+    const a = player.animation;
+    const next = animationFor(player);
+    if (a.key !== next.key) {
+      a.previous = { name: a.name, time: a.time, ...(a.progress === null ? {} : { progress: a.progress }) };
+      Object.assign(a, next, { time: 0, progress: null, blend: next.phase === 'impact' || next.state === 'knockout' ? 0.82 : 0 });
+      a.transitions++;
+    }
+    a.phase = next.phase;
+    a.time += dt;
+    a.blend = Math.min(1, a.blend + dt / (player.attack ? 0.05 : 0.08));
+    if (a.blend >= 1) a.previous = null;
+    if (player.attack && a.key === `attack:${player.attack.id}`) {
+      const move = player.attack;
+      // Six authored frames: anticipation, extension/contact, then recovery.
+      a.progress = clamp(move.age < move.startup ? move.age / move.startup * 0.4
+        : move.age < move.startup + move.active ? 0.4 + (move.age - move.startup) / move.active * 0.25
+          : 0.65 + (move.age - move.startup - move.active) / move.recovery * 0.35, 0, 1);
+    } else if (a.state === 'knockout') a.progress = 0.58;
+    else if (a.state === 'hurt') a.progress = Math.min(0.9, 0.32 + a.time / 0.42);
+    else if (a.name === 'guard') a.progress = Math.min(0.72, (a.state === 'guard-impact' ? 0.42 : 0) + a.time * 3.8);
+    else if (a.state === 'jump') {
+      const launchSpeed = player.character === 'speed' ? 685 : 635;
+      a.progress = clamp((launchSpeed + player.vy) / (launchSpeed * 2), 0.12, 0.92);
+    } else a.progress = null;
+
+    const grounded = isGrounded(player) && player.vy >= 0;
+    if (grounded && !a.grounded) a.landing = 1;
+    a.grounded = grounded;
+    a.landing *= Math.exp(-dt * 17);
+    a.impulseAge += dt;
+    const recoil = a.impulse * Math.exp(-a.impulseAge * 15) * Math.cos(a.impulseAge * 31);
+    const crouched = isCrouching(player) && !player.hurtTime;
+    const breathing = a.state === 'idle' ? Math.sin(a.time * 2.8 + player.id) * 0.008 : 0;
+    const targetY = (crouched ? 0.78 : a.state === 'knockout' ? 0.82 : 1) + breathing - a.landing * 0.045;
+    const targetX = (crouched ? 1.06 : 1) + a.landing * 0.035;
+    const smooth = 1 - Math.exp(-dt * 25);
+    a.scaleX += (targetX - a.scaleX) * smooth;
+    a.scaleY += (targetY - a.scaleY) * smooth;
+    const lean = a.state === 'run' ? clamp(player.vx / CHARACTERS[player.character].speed, -1, 1) * 0.025 : 0;
+    a.rotation += ((a.state === 'knockout' ? -player.facing * 0.16 : lean) - a.rotation) * smooth;
+    a.offsetX = recoil * 2.4;
   }
 
   function resetStatistics() {
@@ -84,7 +158,7 @@ export function createGame(env) {
 
   function cancelInput() {
     held = [emptyHeld(), emptyHeld()];
-    for (const player of players) player.buffered = null;
+    for (const player of players) { player.buffered = null; updateAnimation(player, 0); }
   }
 
   function beginRound() {
@@ -101,6 +175,7 @@ export function createGame(env) {
     banner = multiplayer ? `第 ${round} 局 · 先赢两局！` : endless ? `无限擂台 · 第 ${stage} 位挑战者` : `第 ${stage} / ${OPPONENTS.length} 擂 · ${opponentInfo().name}`;
     bannerTime = 1.35;
     status(`${banner} · ${CHARACTERS[character].name}出战！轻拳快、重拳狠，攒满怒气放大招。`);
+    sound('laugh:start');
   }
 
   function start(options = {}) {
@@ -151,12 +226,13 @@ export function createGame(env) {
       player.rage = 0;
       statistics.specials[player.id]++;
       status(`${player.id + 1}P 大招！${player.character === 'belly' ? '肚皮震天响！' : player.character === 'speed' ? '奶蛙三连闪！' : '蛙哈哈冲击波！'}`);
-      sound('laugh');
+      sound('laugh:special');
     }
     player.attack = { id: attackId++, type, age: 0, direction: player.facing,
       crouched: isCrouching(player), hits: 0, emitted: 0, hitPulses: new Set(), ...moveFor(player, type) };
     player.buffered = null;
-    if (type !== 'special') sound('flap');
+    if (type !== 'special') { sound('flap'); sound('laugh:attack'); }
+    updateAnimation(player, 0);
     return true;
   }
 
@@ -164,6 +240,7 @@ export function createGame(env) {
     if (!isGrounded(player) || player.hurtTime > 0 || player.attack || held[player.id].crouch || held[player.id].block) return false;
     player.vy = player.character === 'speed' ? -685 : -635;
     sound('flap');
+    updateAnimation(player, 0);
     return true;
   }
 
@@ -178,12 +255,14 @@ export function createGame(env) {
       if (player.attack || player.hurtTime > 0) player.buffered = { type: action, ttl: 0.2 };
       else beginAttack(player, action);
     }
+    updateAnimation(player, 0);
     return true;
   }
 
   function controlUp(action, index = 0) {
     if (!ACTIONS.includes(action) || (index !== 0 && index !== 1)) return false;
     held[index][action] = false;
+    if (players[index]) updateAnimation(players[index], 0);
     return true;
   }
 
@@ -225,6 +304,9 @@ export function createGame(env) {
     defender.hurtTime = blocked ? 0.055 : guardBroken ? 0.68 : move.stun;
     defender.blockedFlash = blocked ? 0.2 : 0;
     defender.squash = blocked ? 0.07 : 0.25;
+    defender.visualHitId++;
+    defender.animation.impulse = direction * (blocked ? 0.4 : move.type === 'special' ? 1.5 : 1);
+    defender.animation.impulseAge = 0;
     defender.vx = direction * move.knock * (blocked ? 0.24 : 1);
     if (!blocked && move.type === 'special' && attacker.character === 'belly' && isGrounded(defender)) defender.vy = -225;
     if (!blocked && defender.attack?.type !== 'special') defender.attack = null;
@@ -252,7 +334,12 @@ export function createGame(env) {
     hitStop = Math.max(hitStop, blocked ? 0.035 : move.type === 'special' ? 0.095 : 0.062);
     shake = Math.max(shake, blocked ? 1.5 : move.type === 'special' ? 7 : 3.5);
     sound(blocked ? 'pop' : 'hit');
-    if (!blocked && attacker.combo >= 2) status(`${attacker.id + 1}P ${attacker.combo} 连击！脸挤扁了，笑声还在。`);
+    sound(blocked ? 'laugh:guard' : 'laugh:hurt');
+    if (!blocked && attacker.combo >= 2) {
+      status(`${attacker.id + 1}P ${attacker.combo} 连击！脸挤扁了，笑声还在。`);
+      if (attacker.combo === 2 || attacker.combo % 3 === 0) sound('laugh:combo');
+    }
+    updateAnimation(defender, 0);
     if (defender.hp <= 0) finishRound(attacker.id);
     return !blocked;
   }
@@ -392,7 +479,8 @@ export function createGame(env) {
       : winner === 0 ? `第 ${stage} 擂拿下！蛙哈哈！` : '被笑倒了！奶蛙先歇一会儿。';
     bannerTime = 3;
     status(banner);
-    sound(winner === 0 || multiplayer ? 'win' : 'laugh');
+    if (winner === 0 || multiplayer) sound('win');
+    sound('laugh:victory');
   }
 
   function finishMatch(winner) {
@@ -443,6 +531,7 @@ export function createGame(env) {
       if ((projectile.age >= projectile.life || projectile.x < -60 || projectile.x > W + 60) && projectile.move.hits === 0) statistics.whiffs[projectile.owner]++;
     }
     projectiles = projectiles.filter(p => p.age < p.life && p.x > -60 && p.x < W + 60);
+    for (const player of players) updateAnimation(player, hitStop > 0 ? 0 : dt);
   }
 
   function update(dt) {
@@ -452,6 +541,7 @@ export function createGame(env) {
     phaseTime += dt;
     updateEffects(dt);
     if (phase === 'roundover') {
+      for (const player of players) updateAnimation(player, dt);
       if (phaseTime >= 1.9) {
         if (multiplayer) {
           if (wins[roundWinner] >= 2) finishMatch(roundWinner);
@@ -496,7 +586,7 @@ export function createGame(env) {
     for (let i = 0; i < 10; i++) {
       const x = 61 + i * 94, y = 328 + Math.sin(time * 2 + i) * 3;
       rounded(x - 31, y + 9, 62, 37, 9, i % 2 ? '#d1bf9d' : '#c4b89b');
-      drawFrog(ctx, x, y, 29, { expression: 'laugh', scaleY: 1 + Math.sin(time * 3 + i) * 0.03 });
+      drawFrog(ctx, x, y, 29, { expression: 'laugh', animation: 'laugh', animationTime: time + i * 0.17 });
     }
     for (const x of [84, W - 84]) {
       rounded(x - 11, 282, 22, 173, 7, '#aa8266', '#806d56');
@@ -522,22 +612,25 @@ export function createGame(env) {
     const crouched = isCrouching(player);
     const blocked = isBlocking(player) || player.blockedFlash > 0;
     const attack = player.attack;
-    const hurt = player.squash > 0;
-    const moving = Math.abs(player.vx) > 45 && isGrounded(player);
-    const breathing = phase === 'idle' ? Math.sin(time * 2.2 + player.id) * 0.025 : 0;
+    const a = player.animation;
     ctx.fillStyle = '#6a634224'; ctx.beginPath();
     ctx.ellipse(player.x, FLOOR + 8, knocked ? 63 : 48, 8, 0, 0, TAU); ctx.fill();
     if (player.rage >= 100) {
       ctx.strokeStyle = '#edbf58'; ctx.lineWidth = 3; ctx.globalAlpha = 0.48 + Math.sin(time * 6) * 0.15;
       ctx.beginPath(); ctx.ellipse(player.x, player.y - 54, 68, 83, 0, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
     }
-    const squashX = knocked ? 1.34 : hurt ? 1.28 : attack?.type === 'special' && player.character === 'belly' ? 1.22 : 1;
-    const squashY = knocked ? 0.42 : crouched ? 0.64 : hurt ? 0.77 : 1 + breathing;
-    const centerY = player.y - data.size * 0.57 * squashY;
-    let expression = hurt || knocked ? 'squish' : attack ? attack.type === 'special' ? 'laugh' : 'angry' : blocked ? 'smug' : 'happy';
-    let pose = hurt || knocked ? undefined : attack?.type === 'special' ? player.character === 'belly' ? 'belly' : 'laugh' : moving ? 'run' : undefined;
-    drawFrog(ctx, player.x, centerY, data.size, { expression, pose,
-      scaleX: squashX * player.facing, scaleY: squashY, rotation: knocked ? player.facing * -0.08 : hurt ? player.facing * 0.09 : 0 });
+    const expression = a.name === 'hurt' ? 'squish' : a.name === 'laugh' ? 'laugh' : attack ? 'angry' : blocked ? 'smug' : 'happy';
+    // Rotate around the planted feet; all atlas states share the same foot line.
+    ctx.save();
+    ctx.translate(player.x + a.offsetX, player.y);
+    ctx.rotate(a.rotation);
+    drawFrog(ctx, 0, -data.size * 0.64 * a.scaleY, data.size, {
+      expression, animation: a.name, animationTime: a.time,
+      ...(a.progress === null ? {} : { animationProgress: a.progress }),
+      ...(a.previous ? { animationFrom: { ...a.previous }, animationMix: a.blend } : {}),
+      scaleX: a.scaleX * player.facing, scaleY: a.scaleY,
+    });
+    ctx.restore();
     rounded(player.x - 35, FLOOR + 16, 70, 17, 8, data.color);
     text(player.id === 0 ? '1P' : multiplayer ? '2P' : 'CPU', player.x, FLOOR + 24, 11, '#fffdf4');
     if (blocked) {
@@ -546,17 +639,18 @@ export function createGame(env) {
         player.facing > 0 ? -1.13 : Math.PI - 1.13, player.facing > 0 ? 1.13 : Math.PI + 1.13); ctx.stroke();
     }
     if (attack && !attack.projectile && attack.age >= attack.startup && attack.age < attack.startup + attack.active) {
-      const extension = attack.type === 'special' ? attack.reach * 0.64 : attack.reach * 0.6;
-      const fistX = player.x + attack.direction * extension;
-      const fistY = player.y - (attack.crouched ? 40 : 65);
-      ctx.strokeStyle = attack.type === 'special' ? '#e9c16b' : '#f8e8b3'; ctx.lineWidth = attack.type === 'heavy' ? 18 : 13;
-      ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(player.x + attack.direction * 27, fistY + 5); ctx.lineTo(fistX, fistY); ctx.stroke();
-      rounded(fistX - 15, fistY - 14, 30, 28, 11, '#fff1c9', '#bfa878');
-      ctx.strokeStyle = '#fff9dc'; ctx.lineWidth = 3;
+      const trailX = player.x + attack.direction * attack.reach * 0.68;
+      const trailY = player.y - (attack.crouched ? 40 : 65);
+      const activeProgress = (attack.age - attack.startup) / attack.active;
+      ctx.strokeStyle = attack.type === 'special' ? '#e6ba60' : '#fff9dc'; ctx.lineWidth = 2.5;
+      ctx.globalAlpha = Math.sin(activeProgress * Math.PI) * 0.8;
+      ctx.lineCap = 'round';
       for (let i = 0; i < 3; i++) {
-        ctx.beginPath(); ctx.moveTo(fistX + attack.direction * 21, fistY - 15 + i * 14);
-        ctx.lineTo(fistX + attack.direction * (36 + (i % 2) * 8), fistY - 18 + i * 17); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(trailX, trailY - 16 + i * 14);
+        ctx.quadraticCurveTo(trailX + attack.direction * 17, trailY - 23 + i * 17,
+          trailX + attack.direction * (32 + (i % 2) * 9), trailY - 19 + i * 17); ctx.stroke();
       }
+      ctx.globalAlpha = 1;
     }
     if (player.combo >= 2 && playable()) text(`${player.combo} 连击`, player.x, player.y - 154, 22, '#a27749');
   }
@@ -626,6 +720,11 @@ export function createGame(env) {
         rage: player.rage, guard: player.guard, facing: player.facing,
         grounded: isGrounded(player), blocking: isBlocking(player), crouching: isCrouching(player),
         hurtTime: player.hurtTime, combo: player.combo, bestCombo: player.bestCombo,
+        animation: { name: player.animation.name, state: player.animation.state, phase: player.animation.phase,
+          time: player.animation.time, progress: player.animation.progress, blend: player.animation.blend,
+          previous: player.animation.previous ? { ...player.animation.previous } : null,
+          transitions: player.animation.transitions, footY: player.y, offsetX: player.animation.offsetX,
+          scaleX: player.animation.scaleX, scaleY: player.animation.scaleY, rotation: player.animation.rotation },
         attack: player.attack ? { id: player.attack.id, type: player.attack.type, age: player.attack.age, startup: player.attack.startup, hits: player.attack.hits } : null })),
       projectiles: projectiles.map(p => ({ owner: p.owner, x: p.x, y: p.y, vx: p.vx, radius: p.radius })),
       stats: Object.fromEntries(Object.entries(statistics).map(([key, value]) => [key, [...value]])),

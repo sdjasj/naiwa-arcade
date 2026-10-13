@@ -36,6 +36,11 @@ export function createGame(env) {
   let nextId = 1, nextBossAt = 60, finalBossSpawned = false, finalBossDefeated = false;
   let pendingXp = 0, lastReportedScore = 0, ended = false, won = false;
   let stats = { shots: 0, shockwaves: 0, bottleHits: 0, bosses: 0, dashes: 0, damageTaken: 0 };
+  let animation = { name: 'idle', time: 0, progress: null, facing: 1, targetFacing: 1, moveBlend: 0, bob: 0, lean: 0, stretch: 0 };
+  let sceneTime = 0, gait = 0, visualSpeed = 0, visualVelocityX = 0;
+  let previousPose = null, poseBlendTime = 0.075;
+  let dashPose = 0, hurtPose = 0, laughPose = 0, attackPose = 0, attackPoseCooldown = 0, bellyPulse = 0;
+  let lastComboLaugh = -Infinity, lastSpecialLaugh = -Infinity;
 
   const sound = kind => audio?.play?.(kind);
   const status = text => onStatus?.(text);
@@ -45,6 +50,59 @@ export function createGame(env) {
   const shotInterval = () => Math.max(0.2, 0.68 * 0.82 ** rank('rapid'));
   const dashInterval = () => 4.2 - rank('boots') * 0.5;
   const difficulty = () => Math.min(28, wave);
+
+  function resetAnimation() {
+    animation = { name: 'idle', time: 0, progress: null, facing: 1, targetFacing: 1, moveBlend: 0, bob: 0, lean: 0, stretch: 0 };
+    sceneTime = 0; gait = 0; visualSpeed = 0; visualVelocityX = 0;
+    previousPose = null; poseBlendTime = 0.075;
+    dashPose = 0; hurtPose = 0; laughPose = 0; attackPose = 0; attackPoseCooldown = 0; bellyPulse = 0;
+    lastComboLaugh = -Infinity; lastSpecialLaugh = -Infinity;
+  }
+
+  function pose(name, duration = 0, restart = false) {
+    if (animation.name !== name) {
+      previousPose = { name: animation.name, time: animation.time, progress: animation.progress };
+      poseBlendTime = 0;
+    }
+    if (animation.name !== name || restart) animation.time = 0;
+    animation.name = name;
+    animation.progress = duration > 0 ? clamp(animation.time / duration, 0, 1) : null;
+  }
+
+  function updateAnimation(dt) {
+    const inArena = phase === 'playing';
+    const moving = inArena && visualSpeed > 2;
+    const blend = 1 - Math.exp(-14 * dt);
+    animation.facing += (animation.targetFacing - animation.facing) * blend;
+    animation.moveBlend += ((moving ? Math.min(1, visualSpeed / movementSpeed()) : 0) - animation.moveBlend) * blend;
+    animation.lean += ((inArena ? visualVelocityX / 680 * 0.15 : 0) - animation.lean) * blend;
+    if (inArena) gait += dt * TAU * 2.8 * Math.min(1.5, visualSpeed / movementSpeed());
+
+    const oldName = animation.name;
+    let name = 'idle', duration = 0;
+    if (phase === 'ending' || phase === 'ended') { name = won ? 'laugh' : 'hurt'; duration = won ? 0 : 0.38; }
+    else if (phase === 'upgrading') name = 'laugh';
+    else if (dashPose > 0) { name = 'dash'; duration = 0.24; }
+    else if (hurtPose > 0) { name = 'hurt'; duration = 0.32; }
+    else if (moving || animation.moveBlend > 0.2) name = 'run';
+    else if (laughPose > 0) { name = 'laugh'; duration = 0.65; }
+    else if (attackPose > 0) { name = 'light'; duration = 0.25; }
+    pose(name, duration);
+    if (oldName === name) animation.time += dt;
+    animation.progress = duration > 0 ? clamp(animation.time / duration, 0, 1) : null;
+    poseBlendTime = Math.min(0.075, poseBlendTime + dt);
+
+    const breathing = Math.sin(sceneTime * 2.8);
+    const footstep = Math.sin(gait);
+    animation.bob = -Math.abs(footstep) * 2.8 * animation.moveBlend + breathing * 0.55 * (1 - animation.moveBlend);
+    animation.stretch = Math.sin(gait * 2) * 0.018 * animation.moveBlend + breathing * 0.012 * (1 - animation.moveBlend)
+      + Math.sin(Math.min(1, bellyPulse / 0.35) * Math.PI) * 0.05;
+    // Visual recovery briefly retains the last dash frame after its 0.24 s
+    // movement. No pose or easing changes the collision position or speed.
+    dashPose = Math.max(0, dashPose - dt); hurtPose = Math.max(0, hurtPose - dt);
+    laughPose = Math.max(0, laughPose - dt); attackPose = Math.max(0, attackPose - dt);
+    attackPoseCooldown = Math.max(0, attackPoseCooldown - dt); bellyPulse = Math.max(0, bellyPulse - dt);
+  }
 
   function cancelInput() {
     for (const key of Object.keys(held)) held[key] = false;
@@ -84,7 +142,7 @@ export function createGame(env) {
     nextId = 1; nextBossAt = 60; finalBossSpawned = false; finalBossDefeated = false;
     pendingXp = 0; lastReportedScore = 0; ended = false; won = false;
     stats = { shots: 0, shockwaves: 0, bottleHits: 0, bosses: 0, dashes: 0, damageTaken: 0 };
-    cancelInput(); onScore?.(0);
+    resetAnimation(); cancelInput(); onScore?.(0); sound('laugh:start');
     status(endless ? '无限生存 · 自动攻击 · 移动躲敌，空格冲刺，每分钟有新 BOSS。' : '坚持 3 分钟并击败最终 BOSS · 自动攻击，WASD / 方向键移动，空格冲刺。');
   }
 
@@ -120,7 +178,7 @@ export function createGame(env) {
       final, dead: false, wobble: Math.random() * TAU,
     });
     if (kind === 'boss') {
-      sound('launch');
+      sound('launch'); sound('laugh:boss');
       status(final ? '最终 BOSS「加班大王」来了！躲开红色笑声球，撑到 3:00 并击败它。' : `第 ${wave} 波 BOSS 到场！绕着走，奶蛙会自动瞄准。`);
       floating(final ? '加班大王，禁止加班！' : 'BOSS 来了！', width / 2, 154, '#a65d49');
     }
@@ -145,10 +203,12 @@ export function createGame(env) {
     enemy.dead = true; kills += 1; score += enemy.points; dropExperience(enemy);
     spark(enemy.x, enemy.y, enemy.kind === 'boss' ? '#ecc361' : '#b7c78d', enemy.kind === 'boss' ? 18 : 4);
     if (enemy.kind === 'boss') {
-      stats.bosses += 1; sound('win');
+      stats.bosses += 1; sound('win'); sound('laugh:combo'); lastComboLaugh = elapsed;
       floating(`BOSS 签退！+${enemy.points}`, enemy.x, enemy.y - 32, '#9e782c');
       player.hp = Math.min(player.maxHp, player.hp + 15);
       if (enemy.final) finalBossDefeated = true;
+    } else if (kills % 25 === 0 && elapsed - lastComboLaugh >= 8) {
+      sound('laugh:combo'); lastComboLaugh = elapsed;
     }
   }
 
@@ -163,7 +223,8 @@ export function createGame(env) {
     const damage = Math.round(amount);
     player.hp = Math.max(0, player.hp - damage); stats.damageTaken += damage;
     invulnerability = 1.05;
-    sound('hit'); effect({ type: 'ring', x: player.x, y: player.y, radius: 58, color: '#e4937b', life: 0.35 });
+    hurtPose = 0.32; pose('hurt', 0.32, true);
+    sound('hit'); sound('laugh:hurt'); effect({ type: 'ring', x: player.x, y: player.y, radius: 58, color: '#e4937b', life: 0.35 });
     floating(`−${damage}`, player.x, player.y - 45, '#bb6456');
     if (statusCooldown <= 0) { status('奶蛙挨了一下！移动拉开距离，空格 / 冲刺键可以穿过包围。'); statusCooldown = 3; }
     if (player.hp <= 0) finish(false);
@@ -173,7 +234,8 @@ export function createGame(env) {
     if (phase === 'ending' || phase === 'ended') return;
     phase = 'ending'; won = success; endingTime = 0; upgrades = []; cancelInput();
     score += Math.floor(elapsed) * 2 + (success ? 1000 : 0); reportScore();
-    sound(success ? 'win' : 'laugh');
+    pose(success ? 'laugh' : 'hurt', success ? 0 : 0.38, true);
+    if (success) { sound('win'); sound('laugh:victory'); }
     status(success ? '三分钟打卡完成，加班大王已下班！' : '奶蛙躺平了，但它的笑声还在继续。');
   }
 
@@ -195,7 +257,8 @@ export function createGame(env) {
   function checkLevel() {
     if (phase !== 'playing' || xp < xpNeeded) return;
     xp -= xpNeeded; level += 1; xpNeeded = 8 + (level - 1) * 5;
-    phase = 'upgrading'; upgrades = makeUpgrades(); cancelInput(); sound('score');
+    phase = 'upgrading'; upgrades = makeUpgrades(); cancelInput(); sound('score'); sound('laugh:upgrade');
+    pose('laugh', 0, true);
     status(`升到 ${level} 级！时间已暂停，按 1 / 2 / 3 或点击选择一种成长。`);
   }
 
@@ -212,6 +275,7 @@ export function createGame(env) {
     if (choice.id === 'boots') dashCooldown = Math.min(dashCooldown, dashInterval());
     upgrades = []; phase = 'playing'; cancelInput();
     invulnerability = Math.max(invulnerability, 0.6);
+    laughPose = 0.65; pose('laugh', 0.65, true);
     sound('pop'); floating(choice.name, player.x, player.y - 66);
     status(`获得「${choice.name}」！继续走位，奶蛙替你自动攻击。`);
     checkLevel();
@@ -226,6 +290,13 @@ export function createGame(env) {
       if (d < nearestDistance) { nearest = enemy; nearestDistance = d; }
     }
     if (!nearest || nearestDistance > 620) return false;
+    const direction = inputDirection();
+    if (!direction.x && !direction.y && dashTime <= 0) {
+      if (Math.abs(nearest.x - player.x) > 6) animation.targetFacing = nearest.x < player.x ? -1 : 1;
+      if (attackPoseCooldown <= 0 && hurtPose <= 0 && laughPose <= 0) {
+        attackPose = 0.25; attackPoseCooldown = 1.1;
+      }
+    }
     const count = 1 + rank('spread');
     const angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
     for (let i = 0; i < count && projectiles.length < CAPS.projectiles; i += 1) {
@@ -243,6 +314,11 @@ export function createGame(env) {
   function shockwave() {
     const radius = 87 + rank('belly') * 18;
     stats.shockwaves += 1; sound('launch');
+    bellyPulse = 0.35;
+    const targets = enemies.filter(enemy => !enemy.dead && distance(player, enemy) <= radius + enemy.radius);
+    if ((targets.length >= 3 || targets.some(enemy => enemy.kind === 'boss')) && elapsed - lastSpecialLaugh >= 6) {
+      sound('laugh:special'); lastSpecialLaugh = elapsed;
+    }
     effect({ type: 'ring', x: player.x, y: player.y, radius, color: '#e2c06a', life: 0.6 });
     for (const enemy of enemies) {
       const d = distance(player, enemy);
@@ -289,7 +365,9 @@ export function createGame(env) {
     const direction = inputDirection();
     dashDirection = direction.x || direction.y ? direction : { ...facing };
     dashTime = 0.24; dashCooldown = dashInterval(); invulnerability = Math.max(invulnerability, 0.35);
-    stats.dashes += 1; sound('launch');
+    dashPose = 0.3; pose('dash', 0.24, true);
+    if (Math.abs(dashDirection.x) > 0.05) animation.targetFacing = dashDirection.x < 0 ? -1 : 1;
+    stats.dashes += 1; sound('launch'); sound('laugh:dash');
     effect({ type: 'ring', x: player.x, y: player.y, radius: 45, color: '#a5c9be', life: 0.28 });
     return true;
   }
@@ -304,9 +382,11 @@ export function createGame(env) {
   function update(dt) {
     if (phase === 'idle' || phase === 'ended' || phase === 'upgrading') return;
     dt = Number.isFinite(dt) ? clamp(dt, 0, 0.05) : 0;
+    sceneTime += dt;
     updateEffects(dt);
     if (phase === 'ending') {
       endingTime += dt;
+      updateAnimation(dt);
       if (endingTime >= 0.8 && !ended) {
         ended = true; phase = 'ended';
         onEnd?.({ score, won, endless, elapsed, wave, level, kills, stats: { ...stats },
@@ -325,8 +405,12 @@ export function createGame(env) {
     if (input.x || input.y) facing = input;
     const velocity = dashTime > 0 ? dashDirection : input;
     const speed = dashTime > 0 ? 680 : movementSpeed();
+    const previousX = player.x, previousY = player.y;
     player.x = clamp(player.x + velocity.x * speed * dt, bounds.left, bounds.right);
     player.y = clamp(player.y + velocity.y * speed * dt, bounds.top, bounds.bottom);
+    visualSpeed = dt > 0 ? Math.hypot(player.x - previousX, player.y - previousY) / dt : 0;
+    visualVelocityX = dt > 0 ? (player.x - previousX) / dt : 0;
+    if (Math.abs(velocity.x) > 0.05) animation.targetFacing = velocity.x < 0 ? -1 : 1;
     if (dashTime > 0) {
       dashTime = Math.max(0, dashTime - dt);
       effect({ type: 'spark', x: player.x - velocity.x * 20, y: player.y - velocity.y * 20, color: '#c5dbc4', size: 9, life: 0.24 });
@@ -397,6 +481,7 @@ export function createGame(env) {
     xp += pendingXp; pendingXp = 0; reportScore();
     if (phase === 'playing' && !endless && elapsed >= ROUND_SECONDS && finalBossDefeated) finish(true);
     if (phase === 'playing') checkLevel();
+    updateAnimation(dt);
   }
 
   function controlDown(action, playerIndex = 0) {
@@ -511,7 +596,7 @@ export function createGame(env) {
       ctx.fillStyle = '#92bc96'; ctx.strokeStyle = '#eef8cf'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(gem.x, gem.y - gem.radius); ctx.lineTo(gem.x + gem.radius, gem.y); ctx.lineTo(gem.x, gem.y + gem.radius); ctx.lineTo(gem.x - gem.radius, gem.y); ctx.closePath(); ctx.fill(); ctx.stroke();
     }
-    for (const enemy of visibleEnemies) enemyArt(enemy, time);
+    for (const enemy of visibleEnemies) enemyArt(enemy, sceneTime);
     for (const bullet of projectiles) {
       ctx.fillStyle = '#f2d36e'; ctx.strokeStyle = '#bb9e49'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(bullet.x, bullet.y, bullet.radius, 0, TAU); ctx.fill(); ctx.stroke();
@@ -522,11 +607,19 @@ export function createGame(env) {
       ctx.beginPath(); ctx.arc(bullet.x, bullet.y, bullet.radius, 0, TAU); ctx.fill(); ctx.stroke();
     }
     const px = phase === 'idle' ? center.x : player.x, py = phase === 'idle' ? center.y : player.y;
-    ctx.fillStyle = '#60724b22'; ctx.beginPath(); ctx.ellipse(px, py + 25, 31, 9, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#60724b22'; ctx.beginPath(); ctx.ellipse(px, py + 25, 31 + animation.bob * 0.6, 9 + animation.bob * 0.2, 0, 0, TAU); ctx.fill();
     ctx.strokeStyle = invulnerability > 0 ? '#ffe08b' : '#fdfdf2'; ctx.lineWidth = invulnerability > 0 ? 3.5 : 2;
     ctx.beginPath(); ctx.ellipse(px, py + 13, invulnerability > 0 ? 39 : 32, invulnerability > 0 ? 28 : 15, 0, 0, TAU); ctx.stroke();
     if (dashTime > 0) ctx.globalAlpha = 0.75;
-    drawFrog(ctx, px, py - 6, 55, { expression: phase === 'ending' && !won ? 'squish' : invulnerability > 0 && dashTime <= 0 ? 'hurt' : 'laugh', rotation: facing.x * (dashTime > 0 ? 0.2 : 0.035), scaleY: phase === 'ending' && !won ? 0.63 : 1 });
+    const turn = (animation.facing < 0 ? -1 : 1) * (0.84 + Math.abs(animation.facing) * 0.16);
+    drawFrog(ctx, px, py - 6 + animation.bob, 55, {
+      animation: animation.name, animationTime: animation.time,
+      ...(animation.progress === null ? {} : { animationProgress: animation.progress }),
+      ...(previousPose && poseBlendTime < 0.075 ? { animationFrom: { ...previousPose }, animationMix: poseBlendTime / 0.075 } : {}),
+      expression: animation.name === 'hurt' ? 'hurt' : animation.name === 'laugh' ? 'laugh' : 'happy',
+      rotation: animation.lean + Math.sin(gait) * animation.moveBlend * 0.016, scaleX: turn * (1 - animation.stretch * 0.5),
+      scaleY: (phase === 'ending' && !won ? 0.63 : 1) * (1 + animation.stretch),
+    });
     ctx.globalAlpha = 1;
     for (const item of bottlePositions()) bottle(item.x, item.y, item.angle * 0.35, 0.85);
     if (phase === 'idle') { bottle(px - 72, py, -0.2); bottle(px + 72, py, 0.2); text('走位交给你，哈哈交给蛙。', width / 2, 155, 24, '#6b805c'); }
@@ -596,11 +689,12 @@ export function createGame(env) {
       return true;
     },
     keyUp(event) { const action = actionFor(event); return action ? controlUp(action) : false; },
-    destroy() { phase = 'idle'; cancelInput(); upgrades = []; enemies = []; projectiles = []; enemyProjectiles = []; gems = []; effects = []; labels = []; },
+    destroy() { phase = 'idle'; cancelInput(); resetAnimation(); upgrades = []; enemies = []; projectiles = []; enemyProjectiles = []; gems = []; effects = []; labels = []; },
     getState(options = {}) {
       const state = { phase, endless, score, elapsed, roundSeconds: ROUND_SECONDS, wave, level, kills, xp, xpNeeded,
         player: { ...player, invulnerable: invulnerability > 0 || dashTime > 0 },
         dashCooldown, dashTime, held: { ...held }, upgrades: upgrades.map(choice => ({ ...choice })), weapons: { ...ranks }, stats: { ...stats },
+        animation: { ...animation, mix: poseBlendTime / 0.075, from: previousPose && poseBlendTime < 0.075 ? { ...previousPose } : null },
         finalBossSpawned, finalBossDefeated, won, bounds: { ...bounds }, caps: { ...CAPS },
         entityCounts: { enemies: enemies.length, projectiles: projectiles.length, enemyProjectiles: enemyProjectiles.length, gems: gems.length, effects: effects.length, labels: labels.length },
       };
