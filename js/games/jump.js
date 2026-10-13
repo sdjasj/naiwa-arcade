@@ -3,19 +3,26 @@ const CHARGE_SECONDS = 1.25;
 const FOOT_OFFSET = 31;
 const LANDING_MARGIN = 7;
 const COURSE_LENGTH = 30;
+const ENDLESS_AHEAD = 7;
+const ENDLESS_BEHIND = 2;
 const TAU = Math.PI * 2;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
-function makeCourse() {
-  const platforms = [{ index: 0, x: 97, width: 176, top: 404, style: 0 }];
+function makeNextPlatform(previous, index, endless) {
   const heights = [404, 390, 410, 370, 402, 360, 398, 382, 416, 372];
   const gaps = [0, 24, -8, 16, 6];
-  let center = 185;
-  for (let index = 1; index <= COURSE_LENGTH; index += 1) {
-    const stage = Math.floor((index - 1) / 5);
-    center += 300 + stage * 6 + gaps[(index - 1) % gaps.length];
-    const width = 150 - stage * 7 + [0, 12, -10, 4, -6][index % 5];
-    platforms.push({ index, x: center - width / 2, width, top: heights[index % heights.length], style: index % 4 });
+  // At the endless cap, even the highest platform remains reachable at its center.
+  const difficulty = Math.min(endless ? 8 : 5, Math.floor((index - 1) / 5));
+  const center = previous.x + previous.width / 2 + 300 + difficulty * 6 + gaps[(index - 1) % gaps.length];
+  const width = Math.max(96, 150 - difficulty * 7 + [0, 12, -10, 4, -6][index % 5]);
+  return { index, x: center - width / 2, width, top: heights[index % heights.length], style: index % 4 };
+}
+
+function makeCourse(endless = false) {
+  const platforms = [{ index: 0, x: 97, width: 176, top: 404, style: 0 }];
+  const length = endless ? ENDLESS_AHEAD : COURSE_LENGTH;
+  for (let index = 1; index <= length; index += 1) {
+    platforms.push(makeNextPlatform(platforms[platforms.length - 1], index, endless));
   }
   return platforms;
 }
@@ -24,7 +31,8 @@ export function createGame(env) {
   const { ctx, drawFrog, audio, onScore, onStatus, onEnd } = env;
   const width = env.width || 960;
   const height = env.height || 560;
-  let platforms = makeCourse();
+  let endless = Boolean(env.endless);
+  let platforms = makeCourse(endless);
   let phase = 'idle';
   let score = 0;
   let lives = 3;
@@ -44,10 +52,22 @@ export function createGame(env) {
   let player = { x: 185, y: 404 - FOOT_OFFSET, vx: 0, vy: 0 };
 
   const centerOf = (platform) => platform.x + platform.width / 2;
-  const stage = () => Math.min(6, Math.floor(checkpoint / 5) + 1);
+  const stage = () => endless ? Math.floor(checkpoint / 5) + 1 : Math.min(6, Math.floor(checkpoint / 5) + 1);
+  const hasNext = () => endless || checkpoint < COURSE_LENGTH;
+  const platformAt = (index) => platforms[index - platforms[0].index];
+  const targetPlatform = () => platformAt(endless ? checkpoint + 1 : Math.min(checkpoint + 1, COURSE_LENGTH));
   const sound = (kind) => audio?.play?.(kind);
   const status = (message) => onStatus?.(message);
   const perfectRadius = (platform) => Math.min(17, platform.width * 0.13);
+
+  function maintainPlatformWindow() {
+    if (!endless) return;
+    while (platforms[platforms.length - 1].index < checkpoint + ENDLESS_AHEAD) {
+      const last = platforms[platforms.length - 1];
+      platforms.push(makeNextPlatform(last, last.index + 1, true));
+    }
+    platforms = platforms.filter((platform) => platform.index >= checkpoint - ENDLESS_BEHIND);
+  }
 
   function velocities(power) {
     return { vx: 120 + 400 * power, vy: -(420 + 130 * power) };
@@ -59,7 +79,7 @@ export function createGame(env) {
   }
 
   function targetProjection(power) {
-    const target = platforms[Math.min(checkpoint + 1, COURSE_LENGTH)];
+    const target = targetPlatform();
     const velocity = velocities(power);
     const time = descentTime(player.y, velocity.vy, target.top);
     return {
@@ -71,7 +91,7 @@ export function createGame(env) {
   }
 
   function prediction(power = charge) {
-    const target = platforms[Math.min(checkpoint + 1, COURSE_LENGTH)];
+    const target = targetPlatform();
     const result = targetProjection(power);
     const success = result.x >= target.x - LANDING_MARGIN && result.x <= target.x + target.width + LANDING_MARGIN;
     return {
@@ -95,7 +115,7 @@ export function createGame(env) {
   }
 
   function placeAtCheckpoint() {
-    const platform = platforms[checkpoint];
+    const platform = platformAt(checkpoint);
     player = { x: centerOf(platform), y: platform.top - FOOT_OFFSET, vx: 0, vy: 0 };
     flight = null;
     charge = 0;
@@ -104,8 +124,9 @@ export function createGame(env) {
     phaseTime = 0;
   }
 
-  function start() {
-    platforms = makeCourse();
+  function start(options = {}) {
+    endless = Boolean(options?.endless ?? endless);
+    platforms = makeCourse(endless);
     score = 0;
     lives = 3;
     checkpoint = 0;
@@ -119,7 +140,9 @@ export function createGame(env) {
     lastLanding = null;
     placeAtCheckpoint();
     onScore?.(0);
-    status('按住屏幕 / 空格蓄力，松手起跳！绿区落稳，瞄准中心有奖励。');
+    status(endless
+      ? '无限跳一跳 · 3 颗心，平台没有终点！按住蓄力、松手起跳，每落地都是复活点。'
+      : '按住屏幕 / 空格蓄力，松手起跳！绿区落稳，瞄准中心有奖励。');
   }
 
   function beginCharge(source) {
@@ -159,8 +182,15 @@ export function createGame(env) {
     chargeSource = null;
     onEnd?.({
       score,
-      title: won ? '三十连跳，奶蛙上天了！' : '肚子有点重，下次一定！',
-      message: won
+      endless,
+      completed: checkpoint,
+      stage: stage(),
+      lives,
+      won: won && !endless,
+      title: endless ? `无限 ${checkpoint} 跳，肚子尽力了！` : won ? '三十连跳，奶蛙上天了！' : '肚子有点重，下次一定！',
+      message: endless
+        ? `无限挑战结束 · 第 ${stage()} 阶段 · 跳过 ${checkpoint} 个平台 · ${perfects} 次完美落点 · 最高 ${bestCombo} 连跳。`
+        : won
         ? `六关全部通过！${perfects} 次完美落点 · 最高 ${bestCombo} 连跳 · 剩余 ${lives} 颗心。`
         : `走过 ${checkpoint} / 30 个平台 · ${perfects} 次完美落点。看准绿色蓄力区，再跳一次！`,
     });
@@ -201,15 +231,16 @@ export function createGame(env) {
     sound(perfect ? 'score' : 'pop');
     burst(landingX, platform.top, perfect ? `完美！ +${points}` : `稳稳落地 +${points}`);
     // Every successful platform is a checkpoint, with a centered starting position.
+    maintainPlatformWindow();
     placeAtCheckpoint();
-    if (checkpoint === COURSE_LENGTH) {
+    if (!endless && checkpoint === COURSE_LENGTH) {
       phase = 'cleared';
       phaseTime = 0;
       sound('win');
       status('六关全通！奶蛙宣布：肚子重，也能跳得远！');
     } else if (checkpoint % 5 === 0) {
       sound('win');
-      status(`第 ${stage()} / 6 关！平台更远了，但奶蛙更自信了。`);
+      status(endless ? `无限第 ${stage()} 阶段 · 已跳 ${checkpoint} 块！站稳，继续向前。` : `第 ${stage()} / 6 关！平台更远了，但奶蛙更自信了。`);
     } else {
       status(perfect ? `完美落在中心！${combo} 连跳，继续保持。` : `第 ${checkpoint} 个平台拿下！下次试试瞄准中心。`);
     }
@@ -245,8 +276,8 @@ export function createGame(env) {
       const newTime = oldTime + dt;
       let firstLanding = null;
       // Analytic swept collision: a platform cannot be tunneled through at low frame rates.
-      for (let index = checkpoint; index <= Math.min(checkpoint + 1, COURSE_LENGTH); index += 1) {
-        const platform = platforms[index];
+      for (let index = checkpoint; index <= (hasNext() ? checkpoint + 1 : checkpoint); index += 1) {
+        const platform = platformAt(index);
         const time = descentTime(flight.y, flight.vy, platform.top);
         if (time === null || time <= oldTime || time > newTime) continue;
         const x = flight.x + flight.vx * time;
@@ -358,7 +389,7 @@ export function createGame(env) {
       text('下一个', center, platform.top + 53, 18, '#76677f');
       text(`第 ${platform.index} 跳`, center, platform.top + 78, 15, '#917d93', 'center', 500);
     } else {
-      text(platform.index === 0 ? '起点' : platform.index === COURSE_LENGTH ? '终点' : String(platform.index), center, platform.top + 55, 19, '#887b91');
+      text(platform.index === 0 ? '起点' : !endless && platform.index === COURSE_LENGTH ? '终点' : String(platform.index), center, platform.top + 55, 19, '#887b91');
     }
     if (platform.index > 0 && platform.index % 5 === 0) {
       const poleX = x + platform.width - 16;
@@ -389,9 +420,9 @@ export function createGame(env) {
 
   function drawHud() {
     rounded(24, 18, 912, 67, 18, '#fffcf7d9');
-    text('奶蛙跳一跳', 45, 43, 23, '#79627b', 'left');
-    text(`已跳 ${checkpoint} / ${COURSE_LENGTH} 个平台`, 45, 68, 14, '#ab91a3', 'left', 500);
-    text(`第 ${stage()} / 6 关`, width / 2, 41, 22, '#857398');
+    text(endless ? '奶蛙跳一跳 · 无限' : '奶蛙跳一跳', 45, 43, 23, '#79627b', 'left');
+    text(endless ? `已跳 ${checkpoint} 个平台 · 没有终点` : `已跳 ${checkpoint} / ${COURSE_LENGTH} 个平台`, 45, 68, 14, '#ab91a3', 'left', 500);
+    text(endless ? `第 ${stage()} 阶段` : `第 ${stage()} / 6 关`, width / 2, 41, 22, '#857398');
     text(combo > 1 ? `${combo} 连跳 · 中心额外 +20` : '按住蓄力 · 松手起跳', width / 2, 65, 14, '#a18b9f', 'center', 500);
     text(`${score} 分`, width - 166, 45, 22, '#8e758d', 'right');
     for (let index = 0; index < 3; index += 1) heart(width - 128 + index * 36, 44, index < lives);
@@ -403,8 +434,8 @@ export function createGame(env) {
     const meterWidth = 400;
     const meterY = height - 53;
     rounded(meterX, meterY, meterWidth, 16, 8, '#ede2ec');
-    if (checkpoint < COURSE_LENGTH && (phase === 'ready' || phase === 'charging' || phase === 'idle')) {
-      const target = platforms[checkpoint + 1];
+    if (hasNext() && (phase === 'ready' || phase === 'charging' || phase === 'idle')) {
+      const target = targetPlatform();
       const min = chargeForX(target.x + 8);
       const max = chargeForX(target.x + target.width - 8);
       rounded(meterX + min * meterWidth, meterY, Math.max(2, (max - min) * meterWidth), 16, 6, '#c4decf');
@@ -488,12 +519,13 @@ export function createGame(env) {
     getState() {
       return {
         phase, score, lives, combo, bestCombo, perfects, checkpoint,
-        completed: checkpoint, totalPlatforms: COURSE_LENGTH, stage: stage(),
-        nextPlatform: checkpoint < COURSE_LENGTH ? checkpoint + 1 : null,
+        completed: checkpoint, totalPlatforms: endless ? null : COURSE_LENGTH, stage: stage(), endless,
+        nextPlatform: hasNext() ? checkpoint + 1 : null,
+        platformWindowStart: platforms[0].index,
         charge, chargeSource, chargeSeconds: CHARGE_SECONDS, camera,
         player: { ...player, footOffset: FOOT_OFFSET },
         platforms: platforms.map((platform) => ({ ...platform, center: centerOf(platform) })),
-        landingPreview: checkpoint < COURSE_LENGTH && ['idle', 'ready', 'charging'].includes(phase) ? prediction() : null,
+        landingPreview: hasNext() && ['idle', 'ready', 'charging'].includes(phase) ? prediction() : null,
         lastLanding: lastLanding ? { ...lastLanding } : null,
       };
     },

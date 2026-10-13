@@ -32,6 +32,9 @@ export function createGame(env) {
   let mode = MODES[difficulty];
   let flaps = 0;
   let flightSeconds = 0;
+  let endless = env.endless === true;
+  let lives = endless ? 3 : 1;
+  let invulnerabilityTime = 0;
 
   function chapter() { return Math.floor(score / 5) + 1; }
   function scene() { return SCENES[(chapter() - 1) % SCENES.length]; }
@@ -85,14 +88,15 @@ export function createGame(env) {
   }
 
   function crash(floor = false) {
-    if (phase !== 'running') return;
+    if (phase !== 'running' || invulnerabilityTime > 0) return;
+    lives = Math.max(0, lives - 1);
     phase = 'crashed';
     crashTime = 0;
     hitGround = floor;
     velocity = 0;
     play('hit');
     play('laugh');
-    onStatus?.('噗叽！肚子先到，翅膀还在路上。');
+    onStatus?.(endless && lives > 0 ? `噗叽！还剩 ${lives} 颗心，奶蛙马上重新起飞。` : '噗叽！肚子先到，翅膀还在路上。');
     for (let i = 0; i < 9; i += 1) {
       const angle = i * TAU / 9;
       particles.push({
@@ -116,6 +120,7 @@ export function createGame(env) {
 
   function start(options = {}) {
     difficulty = normalizeDifficulty(options?.difficulty ?? difficulty);
+    if (typeof options?.endless === 'boolean') endless = options.endless;
     mode = MODES[difficulty];
     phase = 'running';
     score = 0;
@@ -123,6 +128,8 @@ export function createGame(env) {
     distance = 0;
     flaps = 0;
     flightSeconds = 0;
+    lives = endless ? 3 : 1;
+    invulnerabilityTime = 0;
     crashTime = 0;
     flapTime = 0.19;
     playerY = height * 0.43;
@@ -134,7 +141,28 @@ export function createGame(env) {
     pipes.push(makePipe(width - 80, true));
     pipes.push(makePipe(width - 80 + mode.spacing));
     onScore?.(0);
-    onStatus?.(`${mode.label}模式 · 点击 / 空格 / ↑ 拍翅膀 · 每 5 根水管进入新风景`);
+    onStatus?.(endless ? `${mode.label} · 无限模式 3 颗心 · 碰撞后安全复位并短暂无敌` : `${mode.label}模式 · 点击 / 空格 / ↑ 拍翅膀 · 每 5 根水管进入新风景`);
+  }
+
+  function recover() {
+    // Keep future scenery and the earned score, remove the obstacle that hit us,
+    // and give the next pipe a fresh approach instead of reviving inside it.
+    pipes = pipes.filter(pipe => pipe.x > frogX + radius + 24);
+    if (pipes.length) {
+      const shift = Math.max(0, width - 80 - pipes[0].x);
+      for (const pipe of pipes) pipe.x += shift;
+    } else {
+      pipes.push(makePipe(width - 80, true));
+      pipes.push(makePipe(width - 80 + mode.spacing));
+    }
+    playerY = pipes[0].center;
+    velocity = mode.startVelocity;
+    phase = 'running';
+    crashTime = 0;
+    hitGround = false;
+    flapTime = 0.19;
+    invulnerabilityTime = 1.8;
+    onStatus?.(`无限模式 · 剩余 ${lives} 颗心 · 护盾 1.8 秒，轻点继续飞！`);
   }
 
   function update(dt) {
@@ -153,16 +181,19 @@ export function createGame(env) {
     if (phase === 'crashed') {
       crashTime += dt;
       if (crashTime >= 0.85 && !ended) {
+        if (endless && lives > 0) { recover(); return; }
         ended = true;
         phase = 'ended';
         onEnd?.({
           score,
+          endless,
+          lives,
           difficulty,
           chapter: chapter(),
           chapterName: scene().name,
           stats: stats(),
-          title: score >= 10 ? '奶蛙竟然飞起来了！' : '翅膀下班，肚子着陆。',
-          message: score === 0
+          title: endless ? '三颗心飞完，奶蛙还在笑。' : score >= 10 ? '奶蛙竟然飞起来了！' : '翅膀下班，肚子着陆。',
+          message: endless ? `无限模式穿过 ${score} 根水管，抵达第 ${chapter()} 段${scene().name}。再来一局，挑战飞得更远！` : score === 0
             ? '奶蛙：刚刚那是热身！轻轻连点，让肚子从水管中间钻过去。'
             : `穿过了 ${score} 根水管！奶蛙笑得很大声，假装一点也不疼。`,
         });
@@ -171,6 +202,7 @@ export function createGame(env) {
     }
 
     const speed = Math.min(mode.maxSpeed, mode.speed + score * mode.speedGain);
+    invulnerabilityTime = Math.max(0, invulnerabilityTime - dt);
     flightSeconds += dt;
     distance += speed * dt;
     velocity = Math.min(mode.terminal, velocity + mode.gravity * dt);
@@ -185,7 +217,7 @@ export function createGame(env) {
       const bottom = pipe.center + pipe.gap / 2;
       const hitsTop = circleTouchesRect(pipe.x - 6, 0, pipe.width + 12, top);
       const hitsBottom = circleTouchesRect(pipe.x - 6, bottom, pipe.width + 12, ground - bottom);
-      if (hitsTop || hitsBottom) {
+      if ((hitsTop || hitsBottom) && invulnerabilityTime <= 0) {
         crash();
         return;
       }
@@ -206,7 +238,8 @@ export function createGame(env) {
     }
     if (playerY + radius >= ground) {
       playerY = ground - radius;
-      crash(true);
+      if (invulnerabilityTime > 0) velocity = -mode.flap * 0.75;
+      else crash(true);
     }
   }
 
@@ -374,6 +407,11 @@ export function createGame(env) {
     }
     ctx.globalAlpha = 1;
 
+    if (invulnerabilityTime > 0) {
+      ctx.strokeStyle = '#fff4ab'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.ellipse(frogX, y - 6, 58, 69, 0, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 0.78 + Math.sin(time * 8) * 0.12;
+    }
     drawFrog(ctx, frogX, y, 83, {
       expression: crashed ? (crashTime < 0.43 ? 'squish' : 'laugh') : velocity > 250 ? 'hurt' : 'happy',
       rotation,
@@ -382,6 +420,7 @@ export function createGame(env) {
       wings: true,
       wingPhase: crashed ? 0 : time * (flapTime > 0 ? 43 : 17),
     });
+    ctx.globalAlpha = 1;
 
     if (crashed) {
       const bubbleX = Math.min(width - 190, frogX + 57);
@@ -389,7 +428,7 @@ export function createGame(env) {
       ctx.font = '800 19px "Noto Sans SC", system-ui, sans-serif';
       ctx.fillStyle = '#36543b';
       ctx.textAlign = 'center';
-      ctx.fillText(crashTime < 0.43 ? '噗——叽！' : '哈哈哈哈哈！', bubbleX + 70, Math.max(25, y - 87) + 27);
+      ctx.fillText(crashTime < 0.43 ? '噗——叽！' : endless && lives > 0 ? `还有${lives}颗心！` : '哈哈哈哈哈！', bubbleX + 70, Math.max(25, y - 87) + 27);
     }
 
     ctx.textAlign = 'left';
@@ -405,6 +444,21 @@ export function createGame(env) {
     ctx.fillStyle = '#7a8972';
     ctx.font = '12px "Noto Sans SC", system-ui, sans-serif';
     ctx.fillText(`再过 ${5 - score % 5} 根水管，下一片风景`, 33, 56);
+
+    if (endless) {
+      roundedRect(width - 257, 18, 237, 66, 15, 'rgba(255,253,244,0.94)');
+      ctx.fillStyle = '#4e6856'; ctx.font = '700 17px "Noto Sans SC", system-ui, sans-serif';
+      ctx.fillText('∞ 无限飞行', width - 241, 43);
+      for (let i = 0; i < 3; i += 1) {
+        const x = width - 117 + i * 32, y = 39;
+        ctx.fillStyle = i < lives ? '#da8c7c' : '#dddccd';
+        ctx.beginPath(); ctx.moveTo(x, y + 12);
+        ctx.bezierCurveTo(x - 21, y - 2, x - 12, y - 16, x, y - 6);
+        ctx.bezierCurveTo(x + 12, y - 16, x + 21, y - 2, x, y + 12); ctx.fill();
+      }
+      ctx.fillStyle = '#7a8972'; ctx.font = '12px "Noto Sans SC", system-ui, sans-serif';
+      ctx.fillText(invulnerabilityTime > 0 ? `护盾保护中 · ${invulnerabilityTime.toFixed(1)} 秒` : '撞击扣 1 心 · 复位后短暂保护', width - 241, 68);
+    }
 
     if (phase === 'running' && elapsed < 3) {
       const alpha = Math.min(1, 3 - elapsed);
@@ -437,11 +491,16 @@ export function createGame(env) {
       phase = 'idle';
       particles = [];
       pipes = [];
+      invulnerabilityTime = 0;
     },
     getState() {
       return {
         phase,
         score,
+        endless,
+        lives,
+        invulnerable: invulnerabilityTime > 0,
+        invulnerabilityTime,
         difficulty,
         chapter: chapter(),
         chapterName: scene().name,

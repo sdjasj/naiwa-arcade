@@ -44,6 +44,11 @@ export function createGame(env) {
   let misses = 0;
   let spawned = 0;
   let goldenHits = 0;
+  let endless = Boolean(env.endless);
+  let lives = 5;
+  let survivalTime = 0;
+
+  const intensity = () => endless ? clamp(survivalTime / 90, 0, 1) : 1 - timeLeft / ROUND_SECONDS;
 
   function accuracy() { return hits + misses ? Math.round(hits / (hits + misses) * 100) : 0; }
   function stats() { return { hits, misses, escaped, spawned, goldenHits, bestCombo, accuracy: accuracy(), attempts: hits + misses }; }
@@ -90,9 +95,11 @@ export function createGame(env) {
     misses = 0;
     spawned = 0;
     goldenHits = 0;
+    lives = 5;
+    survivalTime = 0;
     timeLeft = ROUND_SECONDS;
     elapsed = 0;
-    spawnIn = 0.1;
+    spawnIn = endless ? 0.35 : 0.1;
     effects = [];
     hammer = null;
     cursor = null;
@@ -105,12 +112,15 @@ export function createGame(env) {
   }
 
   function start(options = {}) {
+    endless = Boolean(options?.endless ?? endless);
     difficulty = normalizeDifficulty(options?.difficulty ?? difficulty);
     mode = MODES[difficulty];
     reset();
     phase = 'playing';
     onScore?.(0);
-    onStatus?.(`${mode.label}模式 · 连击有加分，逮住每第 7 只金冠奶蛙额外 +30！`);
+    onStatus?.(endless
+      ? `无限 · ${mode.label} · 5 颗心！漏蛙 / 空锤扣 1 心，金冠 +30 分并回复 1 心。`
+      : `${mode.label}模式 · 连击有加分，逮住每第 7 只金冠奶蛙额外 +30！`);
   }
 
   function addText(label, x, y, color = '#336747', large = false) {
@@ -121,11 +131,11 @@ export function createGame(env) {
     const free = holes.filter((hole) => hole.state === 'hidden');
     if (!free.length) return;
     const hole = free[Math.floor(Math.random() * free.length)];
-    const roundProgress = 1 - timeLeft / ROUND_SECONDS;
+    const roundProgress = intensity();
     spawned += 1;
     hole.state = 'rising';
     hole.age = 0;
-    hole.duration = (1.1 - roundProgress * 0.4 + Math.random() * 0.35) * mode.appearance;
+    hole.duration = ((endless ? 1.35 : 1.1) - roundProgress * (endless ? 0.55 : 0.4) + Math.random() * 0.35) * mode.appearance;
     hole.golden = spawned % 7 === 0;
     hole.expression = EXPRESSIONS[Math.floor(Math.random() * EXPRESSIONS.length)];
     hole.taunt = TAUNTS[Math.floor(Math.random() * TAUNTS.length)];
@@ -137,18 +147,30 @@ export function createGame(env) {
     phase = 'ended';
     timeLeft = 0;
     for (const hole of holes) hole.state = 'hidden';
-    play('win');
-    onStatus?.(`时间到！命中 ${hits} 只 · 命中率 ${accuracy()}% · 空锤 ${misses} 次。`);
+    play(endless ? 'laugh' : 'win');
+    onStatus?.(endless
+      ? `无限挑战结束！坚持 ${Math.floor(survivalTime)} 秒 · 命中 ${hits} 只 · ${score} 分。`
+      : `时间到！命中 ${hits} 只 · 命中率 ${accuracy()}% · 空锤 ${misses} 次。`);
     onEnd?.({
       score,
       difficulty,
+      endless,
+      lives: endless ? lives : null,
+      survivalTime,
       stats: stats(),
       accuracy: accuracy(),
       misses,
       goldenHits,
-      title: hits >= 35 ? '奶蛙克星！' : hits >= 18 ? '这手速，蛙服了！' : '奶蛙还在偷笑',
-      message: `命中 ${hits} 只 · 命中率 ${accuracy()}% · 空锤 ${misses} 次 · 金冠 ${goldenHits} 只 · 最高 ${bestCombo} 连击 · ${escaped} 只逃走。`,
+      title: endless ? `坚持 ${Math.floor(survivalTime)} 秒，奶蛙服了！` : hits >= 35 ? '奶蛙克星！' : hits >= 18 ? '这手速，蛙服了！' : '奶蛙还在偷笑',
+      message: `${endless ? '无限挑战 · 5 颗心已用完。' : ''}命中 ${hits} 只 · 命中率 ${accuracy()}% · 空锤 ${misses} 次 · 金冠 ${goldenHits} 只 · 最高 ${bestCombo} 连击 · ${escaped} 只逃走。`,
     });
+  }
+
+  function loseLife(reason) {
+    if (!endless || phase !== 'playing') return;
+    lives = Math.max(0, lives - 1);
+    if (lives === 0) finish();
+    else onStatus?.(`${reason}，扣 1 心 · 还剩 ${lives} 颗心，逮住金冠能回血！`);
   }
 
   function update(dt) {
@@ -163,20 +185,21 @@ export function createGame(env) {
       if (hammer.age > 0.3) hammer = null;
     }
     if (phase !== 'playing') return;
-    timeLeft = Math.max(0, timeLeft - step);
-    if (timeLeft <= 0) {
+    survivalTime += step;
+    if (!endless) timeLeft = Math.max(0, timeLeft - step);
+    if (!endless && timeLeft <= 0) {
       finish();
       return;
     }
-    if (timeLeft <= 5 && clockSound !== Math.ceil(timeLeft)) {
+    if (!endless && timeLeft <= 5 && clockSound !== Math.ceil(timeLeft)) {
       clockSound = Math.ceil(timeLeft);
       onStatus?.(`最后 ${clockSound} 秒！奶蛙开始慌了！`);
     }
     spawnIn -= step;
     if (spawnIn <= 0) {
       spawn();
-      const roundProgress = 1 - timeLeft / ROUND_SECONDS;
-      spawnIn = (0.65 - roundProgress * 0.35 + Math.random() * 0.1) * mode.spawn;
+      const roundProgress = intensity();
+      spawnIn = ((endless ? 0.85 : 0.65) - roundProgress * (endless ? 0.5 : 0.35) + Math.random() * 0.1) * mode.spawn;
     }
     for (const hole of holes) {
       hole.age += step;
@@ -190,6 +213,8 @@ export function createGame(env) {
         escaped += 1;
         play('laugh');
         addText(hole.taunt, hole.x, hole.y - 134, '#88654d');
+        loseLife(hole.golden ? '金冠蛙也溜走了' : '奶蛙溜走了');
+        if (phase !== 'playing') return;
       } else if (hole.state === 'laugh' && hole.age >= 0.55) {
         hole.state = 'falling';
         hole.age = 0;
@@ -218,11 +243,14 @@ export function createGame(env) {
       hits += 1;
       bestCombo = Math.max(bestCombo, combo);
       const points = 10 + Math.min(30, Math.floor(combo / 3) * 5) + (hole.golden ? 30 : 0);
-      if (hole.golden) goldenHits += 1;
+      if (hole.golden) {
+        goldenHits += 1;
+        if (endless) lives = Math.min(5, lives + 1);
+      }
       score += points;
       onScore?.(score);
       play('hit');
-      if (hole.golden) onStatus?.(`金冠奶蛙到手！额外 +30 · ${combo} 连击！`);
+      if (hole.golden) onStatus?.(`金冠奶蛙到手！额外 +30${endless ? ` · 回血后 ${lives} / 5 心` : ''} · ${combo} 连击！`);
       else if (combo > 1) onStatus?.(`${combo} 连击！奶蛙的笑容逐渐消失。`);
       else onStatus?.('敲中了！保持节奏，连击加分。');
       addText(hole.golden ? `金冠 +${points}` : `+${points}`, hole.x, hole.y - 106, hole.golden ? '#a77924' : '#2b7750', true);
@@ -242,6 +270,7 @@ export function createGame(env) {
       play('miss');
       addText('敲了个寂寞', point.x, point.y - 36, '#ab7668');
       onStatus?.('空锤！奶蛙在洞里偷笑。');
+      loseLife('空锤啦');
     }
   }
 
@@ -285,12 +314,17 @@ export function createGame(env) {
       ellipse(0, 0, 4, 4, '#e9bb58');
       ctx.restore();
     }
-    text(`九宫格蛙田 · ${mode.label}`, 48, 38, 23, '#3f5f40', 'left');
-    text('鼠标 / 触屏敲击 · 键盘 1–9', 48, 64, 15, '#758766', 'left', 600);
+    text(`${endless ? '无限蛙田' : '九宫格蛙田'} · ${mode.label}`, 48, 38, 23, '#3f5f40', 'left');
+    text(endless ? '漏蛙 / 空锤扣心 · 金冠回 1 心' : '鼠标 / 触屏敲击 · 键盘 1–9', 48, 64, 15, '#758766', 'left', 600);
     const timerColor = timeLeft <= 5 ? '#bb6558' : '#3f654d';
     rounded(365, 22, 286, 40, 20, '#f7faef');
-    rounded(374, 31, Math.max(0, 219 * (timeLeft / ROUND_SECONDS)), 22, 11, timeLeft <= 5 ? '#eab39a' : '#a7c885');
-    text(`${Math.ceil(timeLeft)}s`, 620, 43, 20, timerColor);
+    if (endless) {
+      text(`存活 ${Math.floor(survivalTime)} 秒`, 383, 42, 18, '#3f654d', 'left');
+      text(`${'♥'.repeat(lives)}${'♡'.repeat(5 - lives)}`, 632, 42, 20, lives <= 2 ? '#c27570' : '#a87c80', 'right');
+    } else {
+      rounded(374, 31, Math.max(0, 219 * (timeLeft / ROUND_SECONDS)), 22, 11, timeLeft <= 5 ? '#eab39a' : '#a7c885');
+      text(`${Math.ceil(timeLeft)}s`, 620, 43, 20, timerColor);
+    }
     text(combo > 1 ? `${combo} 连击` : '逮住那只蛙！', 902, 39, 23, combo > 1 ? '#ad714b' : '#4b6845', 'right');
     text(`命中率 ${accuracy()}% · 空锤 ${misses}`, 902, 65, 15, '#7a8966', 'right', 600);
   }
@@ -456,7 +490,8 @@ export function createGame(env) {
     },
     getState() {
       return {
-        phase, score, timeLeft, combo, bestCombo, hits, escaped,
+        phase, score, timeLeft: endless ? null : timeLeft, combo, bestCombo, hits, escaped,
+        endless, lives: endless ? lives : null, survivalTime, intensity: intensity(),
         difficulty, misses, spawned, goldenHits, accuracy: accuracy(), stats: stats(),
         holes: holes.map(({ key, x, y, state, age, duration, expression, golden }) => ({ key, x, y, state, age, duration, expression, golden })),
       };

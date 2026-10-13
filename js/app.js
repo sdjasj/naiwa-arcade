@@ -1,11 +1,11 @@
-import { createGame as createFlappy } from './games/flappy.js?v=40c59b24e77f';
-import { createGame as createAngry, LEVELS } from './games/angry.js?v=40c59b24e77f';
-import { createGame as createWhack } from './games/whack.js?v=40c59b24e77f';
-import { createGame as createCatch } from './games/catch.js?v=40c59b24e77f';
-import { createGame as createJump } from './games/jump.js?v=40c59b24e77f';
-import { createGame as createMerge, FORMS, validSave } from './games/merge.js?v=40c59b24e77f';
-import { drawFrog, setFrogTime, frogReady, drawHero, drawCard } from './frog.js?v=40c59b24e77f';
-import { GameAudio } from './audio.js?v=40c59b24e77f';
+import { createGame as createFlappy } from './games/flappy.js?v=1b5000de2774';
+import { createGame as createAngry, LEVELS } from './games/angry.js?v=1b5000de2774';
+import { createGame as createWhack } from './games/whack.js?v=1b5000de2774';
+import { createGame as createCatch } from './games/catch.js?v=1b5000de2774';
+import { createGame as createJump } from './games/jump.js?v=1b5000de2774';
+import { createGame as createMerge, FORMS, validSave } from './games/merge.js?v=1b5000de2774';
+import { drawFrog, setFrogTime, frogReady, drawHero, drawCard } from './frog.js?v=1b5000de2774';
+import { GameAudio } from './audio.js?v=1b5000de2774';
 
 const $ = id => document.getElementById(id);
 const definitions = {
@@ -17,12 +17,24 @@ const definitions = {
   merge: { factory: createMerge, name: '奶蛙 2048', title: '从发呆，合到笑出声。', message: '滑动棋盘，将相同数字的奶蛙合成新形态。', start: '开始合成', instruction: '越合越大，越大越抽象。', summary: '从 2 的发呆蛙，一路合出 2048 狂笑蛙！相同数字才能合并，可撤销一步。进度自动保存，合出 2048 后还能继续冲蛙王。', keyboard: '方向键 / WASD', keyboardDetail: '整个棋盘向同一个方向移动', touch: '上下左右滑动', touchDetail: '也可用棋盘下方的方向按钮', quote: '“两个发呆的我，会变得更有精神吗？”', status: '滑动合并 · 撤销一步 · 自动保存 · 随时继续' },
 };
 const ids = Object.keys(definitions);
+const endlessDescriptions = {
+  flappy: { message: '3 颗心，穿过源源不断的水管。碰撞后短暂无敌，继续扑腾！', summary: '无限航线，3 颗心。撞到障碍扣 1 颗心，安全复位后短暂无敌；坚持越久，风景越多。生命耗尽结算得分。', status: '无限航线 · 3 颗心 · 碰撞后短暂无敌' },
+  angry: { message: '工地一关接一关，每关补充弹药，挑战你的拆迁纪录！', summary: '工地持续出现，每关补充弹药，分数累计。难度逐步提升，弹药用完仍有目标时结算。无限模式单独记分。', status: '无限工地 · 每关补充弹药 · 累计得分' },
+  whack: { message: '5 颗心，没有倒计时。打空或漏蛙扣心，挑战最长连击！', summary: '奶蛙不断冒头，5 颗心。漏蛙或打空扣 1 颗心，金冠蛙额外加分并回复 1 颗心（最多 5 颗），连击照常加分。节奏逐渐加快，生命耗尽结算。', status: '无限蛙田 · 5 颗心 · 打空或漏蛙扣心' },
+  catch: { message: '奶蛙雨一直下，3 条生命，接金蛙、躲炸弹！', summary: '波次持续生成，3 条生命。接金蛙、积累连击，漏接或接到炸弹扣命。速度逐渐提高，生命耗尽结算。', status: '无限奶蛙雨 · 3 条生命 · 波次持续生成' },
+  jump: { message: '平台不断向前延伸，3 条生命，看看能跳多远！', summary: '平台持续生成，每 5 座进入新阶段。3 条生命，掉落后从检查点继续，跳到中心额外加分。生命耗尽结算。', status: '无限平台 · 3 条生命 · 每 5 座进入新阶段' },
+};
 const read = (key, fallback) => { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } };
 const write = (key, value) => { try { value === null ? localStorage.removeItem(key) : localStorage.setItem(key, String(value)); } catch { /* Storage is optional. */ } };
 const readJSON = (key, fallback) => { try { return JSON.parse(read(key, 'null')) ?? fallback; } catch { return fallback; } };
 const modes = ['easy', 'normal', 'hard'];
 const modeNames = { easy: '轻松', normal: '标准', hard: '挑战' };
 const difficulty = Object.fromEntries(['flappy', 'whack'].map(id => { const value = read(`naiwa:difficulty:${id}`, 'normal'); return [id, modes.includes(value) ? value : 'normal']; }));
+const playModes = Object.fromEntries(ids.filter(id => id !== 'merge').map(id => [id, read(`naiwa:mode:${id}`, 'classic') === 'endless' ? 'endless' : 'classic']));
+let gridSize = read('naiwa:board:merge', '4') === '6' ? 6 : 4;
+const isEndless = id => playModes[id] === 'endless';
+const gameData = id => isEndless(id) ? { ...definitions[id], ...endlessDescriptions[id] } : definitions[id];
+const mergeSaveKey = () => `naiwa:save:merge${gridSize === 6 ? ':6' : ''}`;
 function loadProgress() {
   const stored = readJSON('naiwa:progress:angry', {});
   const unlocked = Math.max(1, Math.min(LEVELS.length, Math.floor(Number(stored?.unlocked) || 1)));
@@ -38,7 +50,7 @@ let activeId = 'flappy', game = null, state = 'ready', score = 0, gameTime = 0, 
 let lastFrame = 0, accumulator = 0, activePointer = null;
 let size = { width: 960, height: 560 };
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const bestKey = id => `naiwa:best:${id}${difficulty[id] && difficulty[id] !== 'normal' ? `:${difficulty[id]}` : ''}`;
+const bestKey = id => `naiwa:best:${id}${difficulty[id] && difficulty[id] !== 'normal' ? `:${difficulty[id]}` : ''}${isEndless(id) ? ':endless' : ''}${id === 'merge' && gridSize === 6 ? ':6' : ''}`;
 const bestFor = id => { const value = Number(read(bestKey(id), 0)); return Number.isFinite(value) ? Math.max(0, value) : 0; };
 
 const sidebar = document.querySelector('.game-sidebar');
@@ -58,7 +70,8 @@ function setSoundUI() {
 }
 function refreshBest() {
   $('best-score').replaceChildren(document.createTextNode(`${bestFor(activeId)} `), Object.assign(document.createElement('small'), { textContent: '分' }));
-  document.querySelector('.best-score div>span').textContent = `${definitions[activeId].modes ? `${modeNames[difficulty[activeId]]} · ` : ''}我的最高纪录`;
+  const label = activeId === 'merge' ? `${gridSize}×${gridSize}` : `${isEndless(activeId) ? '无限' : '经典'}${definitions[activeId].modes ? ` · ${modeNames[difficulty[activeId]]}` : ''}`;
+  document.querySelector('.best-score div>span').textContent = `${label} · 我的最高纪录`;
 }
 function refreshPuzzleControls() {
   if (activeId !== 'merge' || !game) return;
@@ -66,6 +79,7 @@ function refreshPuzzleControls() {
   document.querySelectorAll('[data-direction]').forEach(button => { button.disabled = state !== 'playing'; });
 }
 function renderLevels() {
+  if (isEndless('angry') && activeId === 'angry') return;
   const current = activeId === 'angry' && state !== 'ready' && game ? game.getState().level : selectedLevel;
   $('level-progress').textContent = `已解锁 ${progress.unlocked} / ${LEVELS.length} 关 · 共 ${Object.values(progress.stars).reduce((sum, n) => sum + n, 0)} 颗星`;
   $('level-grid').replaceChildren(...LEVELS.map((level, index) => {
@@ -87,14 +101,14 @@ function setScore(value) {
   refreshPuzzleControls();
 }
 function showOverlay(kind, result) {
-  const data = definitions[activeId];
-  const saved = activeId === 'merge' ? readJSON('naiwa:save:merge', null) : null;
-  const resumable = kind === 'ready' && validSave(saved);
+  const data = gameData(activeId);
+  const saved = activeId === 'merge' ? readJSON(mergeSaveKey(), null) : null;
+  const resumable = kind === 'ready' && validSave(saved, gridSize);
   $('game-overlay').hidden = false; $('result-score').hidden = kind !== 'ended';
   $('overlay-kicker').textContent = { ready: resumable ? 'WELCOME BACK, FROGGY' : 'READY, FROGGY?', paused: 'TAKE YOUR TIME', ended: 'WELL PLAYED, FROGGY!' }[kind];
   $('overlay-title').textContent = result?.title ?? (kind === 'paused' ? '奶蛙也要歇一会儿。' : resumable ? '上次的奶蛙，还在等你。' : data.title);
-  $('overlay-message').textContent = result?.message ?? (kind === 'paused' ? '准备好了就继续，你的这局还在。' : resumable ? `已经走了 ${saved.moves} 步，合到 ${Math.max(...saved.board)}。继续你的进化之旅。` : activeId === 'angry' ? `第 ${selectedLevel} 关 · ${LEVELS[selectedLevel - 1].name} · ${LEVELS[selectedLevel - 1].shots} 发机会` : data.message);
-  const text = kind === 'paused' ? '继续游戏' : result?.canContinue ? '继续冲击 4096' : kind === 'ended' ? (activeId === 'angry' ? '重试这一关' : '再来一局') : resumable ? '继续上局' : data.start;
+  $('overlay-message').textContent = result?.message ?? (kind === 'paused' ? '准备好了就继续，你的这局还在。' : resumable ? `${gridSize}×${gridSize} · 已经走了 ${saved.moves} 步，合到 ${Math.max(...saved.board)}。继续你的进化之旅。` : activeId === 'angry' && !isEndless(activeId) ? `第 ${selectedLevel} 关 · ${LEVELS[selectedLevel - 1].name} · ${LEVELS[selectedLevel - 1].shots} 发机会` : activeId === 'merge' ? `${gridSize}×${gridSize} 棋盘 · ${data.message}` : data.message);
+  const text = kind === 'paused' ? '继续游戏' : result?.canContinue ? '继续冲击 4096' : kind === 'ended' ? (activeId === 'angry' && !isEndless(activeId) ? '重试这一关' : '再来一局') : resumable ? '继续上局' : data.start;
   $('start-button').replaceChildren(document.createTextNode(`${text} `), Object.assign(document.createElement('span'), { textContent: '→' }));
   $('overlay-hint').textContent = kind === 'ended' ? '没关系，奶蛙的快乐没有次数限制' : '准备好迎接奶蛙的魔性笑声';
   if (kind === 'ended') { $('result-value').textContent = String(result.score); $('start-button').focus({ preventScroll: true }); }
@@ -103,7 +117,7 @@ function showOverlay(kind, result) {
 function endGame(result) {
   if (state === 'ended') return;
   setScore(result.score); state = 'ended'; lastResult = result;
-  if (activeId === 'angry' && result.level) selectedLevel = result.level;
+  if (activeId === 'angry' && !isEndless(activeId) && result.level) selectedLevel = result.level;
   $('pause-button').disabled = true; showOverlay('ended', result);
   if (activeId === 'angry') renderLevels();
 }
@@ -125,7 +139,7 @@ function selectGame(id, scroll = false, levelOverride) {
   audio.stopAll(); clearInput(); game?.destroy(); game = null;
   activeId = id; state = 'ready'; gameTime = 0; accumulator = 0; lastResult = null;
   if (id === 'angry') { progress = loadProgress(); selectedLevel = Math.max(1, Math.min(progress.unlocked, levelOverride || progress.unlocked)); }
-  const data = definitions[id];
+  const data = gameData(id);
   size = id === 'merge' ? { width: 560, height: 640 } : { width: 960, height: 560 };
   resize(); $('player-window').classList.toggle('puzzle-mode', id === 'merge');
   $('current-name').textContent = data.name; $('game-number').textContent = `${String(ids.indexOf(id) + 1).padStart(2, '0')} / 06`;
@@ -136,18 +150,21 @@ function selectGame(id, scroll = false, levelOverride) {
   $('pause-button').disabled = true; $('pause-button').textContent = 'Ⅱ'; $('pause-button').setAttribute('aria-label', '暂停游戏');
   $('game-select').value = id; $('difficulty-setting').hidden = !data.modes;
   $('difficulty-select').value = difficulty[id] || 'normal';
-  $('mode-note').textContent = data.modes ? '每种难度独立记录最高分' : id === 'angry' ? '通关保存星级，解锁下一关' : id === 'merge' ? '棋盘自动保存，下次接着玩' : '放轻松，奶蛙替你努力';
-  $('puzzle-controls').hidden = id !== 'merge'; levelPanel.hidden = id !== 'angry'; formsPanel.hidden = id !== 'merge';
+  $('play-mode-setting').hidden = id === 'merge'; $('play-mode-select').value = playModes[id] || 'classic';
+  $('board-setting').hidden = id !== 'merge'; $('board-size-select').value = String(gridSize);
+  $('mode-note').textContent = id === 'merge' ? '两种棋盘分别存档、分别记录最高分' : isEndless(id) ? '无限续关，挑战生存纪录 · 独立记分' : data.modes ? '每种难度独立记录最高分' : id === 'angry' ? '通关保存星级，解锁下一关' : '放轻松，奶蛙替你努力';
+  $('puzzle-controls').hidden = id !== 'merge'; levelPanel.hidden = id !== 'angry' || isEndless(id); formsPanel.hidden = id !== 'merge';
   canvas.setAttribute('aria-label', `${data.name}游戏区域。${data.message}`);
   document.querySelectorAll('[data-game]').forEach(button => { const selected = button.dataset.game === id; button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected)); });
+  const saveKey = mergeSaveKey();
   game = data.factory({
-    canvas, ctx, ...size, drawFrog, audio, difficulty: difficulty[id] || 'normal', progress,
-    savedGame: id === 'merge' ? readJSON('naiwa:save:merge', null) : null,
+    canvas, ctx, ...size, drawFrog, audio, difficulty: difficulty[id] || 'normal', progress, endless: isEndless(id), gridSize,
+    savedGame: id === 'merge' ? readJSON(saveKey, null) : null,
     onScore: setScore,
     onStatus: text => { $('game-status').textContent = text; if (activeId === 'angry' && game) renderLevels(); },
     onEnd: endGame,
-    onProgress: value => { progress = value; write('naiwa:progress:angry', JSON.stringify(value)); renderLevels(); },
-    onSave: value => { if (id === 'merge') write('naiwa:save:merge', value === null ? null : JSON.stringify(value)); },
+    onProgress: value => { if (isEndless(id)) return; progress = value; write('naiwa:progress:angry', JSON.stringify(value)); renderLevels(); },
+    onSave: value => { if (id === 'merge') write(saveKey, value === null ? null : JSON.stringify(value)); },
   });
   setScore(0); refreshBest(); renderLevels(); showOverlay('ready');
   if (scroll) $('arcade').scrollIntoView({ behavior: reducedMotion ? 'instant' : 'smooth', block: 'start' });
@@ -155,10 +172,10 @@ function selectGame(id, scroll = false, levelOverride) {
 function startGame({ restart = false } = {}) {
   audio.unlock(); audio.stopAll(); clearInput();
   const oldState = state;
-  if (restart && activeId === 'angry' && oldState !== 'ready') selectedLevel = game.getState().level;
+  if (restart && activeId === 'angry' && !isEndless(activeId) && oldState !== 'ready') selectedLevel = game.getState().level;
   state = 'playing';
   if (!restart && oldState === 'ended' && lastResult?.canContinue) game.continueGame();
-  else if (restart || oldState !== 'paused') { gameTime = 0; game.start({ level: selectedLevel, fresh: restart || oldState === 'ended', difficulty: difficulty[activeId] || 'normal' }); }
+  else if (restart || oldState !== 'paused') { gameTime = 0; game.start({ level: isEndless(activeId) ? 1 : selectedLevel, fresh: restart || oldState === 'ended', difficulty: difficulty[activeId] || 'normal', endless: isEndless(activeId) }); }
   if (state === 'ended') return;
   lastResult = null; $('game-overlay').hidden = true; $('pause-button').disabled = false;
   $('pause-button').textContent = 'Ⅱ'; $('pause-button').setAttribute('aria-label', '暂停游戏');
@@ -206,6 +223,8 @@ window.addEventListener('resize', resize);
 document.querySelectorAll('[data-game]').forEach(button => button.addEventListener('click', () => selectGame(button.dataset.game, true)));
 $('game-select').addEventListener('change', event => selectGame(event.target.value));
 $('difficulty-select').addEventListener('change', event => { difficulty[activeId] = event.target.value; write(`naiwa:difficulty:${activeId}`, event.target.value); selectGame(activeId); });
+$('play-mode-select').addEventListener('change', event => { playModes[activeId] = event.target.value === 'endless' ? 'endless' : 'classic'; write(`naiwa:mode:${activeId}`, playModes[activeId]); selectGame(activeId); });
+$('board-size-select').addEventListener('change', event => { gridSize = event.target.value === '6' ? 6 : 4; write('naiwa:board:merge', gridSize); selectGame('merge'); });
 $('start-button').addEventListener('click', () => startGame());
 $('pause-button').addEventListener('click', () => state === 'paused' ? startGame() : pause());
 $('restart-button').addEventListener('click', () => startGame({ restart: true }));
@@ -249,5 +268,5 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 if (new URLSearchParams(location.search).has('debug')) {
-  Object.defineProperty(window, '__arcade', { value: { getState: () => ({ id: activeId, state, score, soundEnabled, difficulty: difficulty[activeId], selectedLevel, progress, game: game.getState() }) } });
+  Object.defineProperty(window, '__arcade', { value: { getState: () => ({ id: activeId, state, score, soundEnabled, difficulty: difficulty[activeId], playMode: playModes[activeId], gridSize, selectedLevel, progress, game: game.getState() }) } });
 }
