@@ -9,7 +9,7 @@ const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: 'browser.spec.js',
+  testMatch: '*.spec.js',
   fullyParallel: false,
   workers: 1,
   timeout: 30_000,
@@ -18,7 +18,7 @@ export default defineConfig({
   reporter: 'list',
   outputDir: 'test-results',
   use: {
-    baseURL: 'http://127.0.0.1:8080',
+    baseURL: process.env.NAIWA_TEST_URL || 'http://127.0.0.1:8080/',
     browserName: 'chromium',
     viewport: { width: 1440, height: 1000 },
     reducedMotion: 'reduce',
@@ -26,7 +26,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  webServer: {
+  webServer: process.env.NAIWA_TEST_URL ? undefined : {
     command: 'python3 -m http.server 8080 --bind 127.0.0.1',
     url: 'http://127.0.0.1:8080',
     reuseExistingServer: true,

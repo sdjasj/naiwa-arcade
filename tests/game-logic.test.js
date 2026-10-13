@@ -300,11 +300,11 @@ test('angry: cancelling a drag restores the launcher without consuming a shot, t
   assert.equal(sounds.filter((sound) => sound === 'launch').length, 1);
 }));
 
-test('angry: real drag shots can clear all three levels and award one final victory', () => deterministic(() => {
+test('angry: original three levels now advance into the expanded campaign', () => deterministic(() => {
   const { game, scores, sounds, results } = harness(createAngry);
   game.start();
   const visitedLevels = new Set([1]);
-  for (let shot = 0; shot < 9 && game.getState().phase !== 'ended'; shot += 1) {
+  for (let shot = 0; shot < 9 && game.getState().level <= 3; shot += 1) {
     // A strong low shot hits the supporting wood and follows through into the milk cartons.
     shoot(game, 10, 0.95);
     const state = until(game, (current) => ['ready', 'ended'].includes(current.phase), 12, 60);
@@ -315,17 +315,16 @@ test('angry: real drag shots can clear all three levels and award one final vict
     }
   }
   const final = game.getState();
-  assert.deepEqual([...visitedLevels], [1, 2, 3]);
-  assert.equal(final.phase, 'ended');
-  assert.equal(final.targets, 0);
+  assert.deepEqual([...visitedLevels], [1, 2, 3, 4]);
+  assert.equal(final.phase, 'ready');
+  assert.ok(final.targets > 0);
   assert.ok(final.score >= 2000);
-  assert.equal(results.length, 1);
-  assert.equal(results[0].score, final.score);
+  assert.equal(results.length, 0);
   assert.ok(scores.every((score, index) => index === 0 || score > scores[index - 1]));
   assert.ok(sounds.includes('launch'));
   assert.ok(sounds.includes('laugh'));
   assert.ok(sounds.includes('hit'));
   assert.ok(sounds.includes('win'));
   advance(game, 10);
-  assert.equal(results.length, 1);
+  assert.equal(results.length, 0);
 }));
