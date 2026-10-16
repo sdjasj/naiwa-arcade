@@ -137,6 +137,14 @@ node scripts/test-leaderboard-live.mjs
 NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ NAIWA_LEADERBOARD_SERVICE=https://naiwa-arcade-scores.newcat6.chatgpt.site node scripts/test-leaderboard-live.mjs
 ```
 
+[瞄准训练线上验收](scripts/test-aim-live.mjs) 使用 Firefox，两个隔离浏览器各实际点中一个目标并结束训练，通过昵称表单提交，再验证双方可见和刷新恢复；最终删除临时身份及成绩并确认清理。先安装 `npx playwright install firefox`，再显式指定线上地址运行：
+
+```sh
+NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ node scripts/test-aim-live.mjs
+```
+
+瞄准专项测试还覆盖真实鼠标锁定与转向、迟到授权的取消、点射冷却、跟枪按时长计分、全部靶位可瞄准、60 秒结算、暂停和手机触控。
+
 ## GitHub Pages
 
 源代码位于 `main` 分支，网站构建产物位于 `gh-pages` 分支。GitHub Pages 的发布源设置为 `gh-pages` 的根目录。部署后的访问路径为 `/naiwa-arcade/`，资源路径均为相对路径，无需修改域名配置。
