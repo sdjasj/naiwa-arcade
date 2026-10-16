@@ -17,12 +17,12 @@ const start = async page => {
 };
 async function open(page) { await page.goto('./?debug', { waitUntil: 'networkidle' }); }
 
-test('new game cards, controls, mode choices and nine-game numbering agree', async ({ page }) => {
+test('new game cards, controls, mode choices and ten-game numbering agree', async ({ page }) => {
   await open(page);
   for (const [index, id] of ['fighter', 'survivor', 'bomber'].entries()) {
     await page.locator(`[data-game="${id}"]`).click();
     await expect(page.locator('#game-select')).toHaveValue(id);
-    await expect(page.locator('#game-number')).toHaveText(`0${index + 7} / 09`);
+    await expect(page.locator('#game-number')).toHaveText(`0${index + 7} / 10`);
     await expect(page.locator('#action-controls')).toBeVisible();
     for (const button of await page.locator('#action-controls button').all()) await expect(button).toBeDisabled();
     await expect(page.locator('#play-mode-select option')).toHaveCount(id === 'survivor' ? 2 : id === 'fighter' ? 4 : 3);

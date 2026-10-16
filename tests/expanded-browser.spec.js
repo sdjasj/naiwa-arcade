@@ -103,10 +103,10 @@ async function settledMerge(page, moves) {
   await page.waitForFunction(() => !window.__arcade.getState().game.transitioning);
 }
 
-test('expanded desktop lobby exposes all nine games and synchronizes cards with the quick selector', async ({ page }) => {
+test('expanded desktop lobby exposes all ten games and synchronizes cards with the quick selector', async ({ page }) => {
   await openArcade(page);
-  await expect(page.locator('[data-game]')).toHaveCount(9);
-  await expect(page.locator('#game-select option')).toHaveCount(9);
+  await expect(page.locator('[data-game]')).toHaveCount(10);
+  await expect(page.locator('#game-select option')).toHaveCount(10);
   for (const id of ['catch', 'jump', 'merge', 'angry', 'whack', 'flappy']) {
     await choose(page, id);
     expect((await stateOf(page)).state).toBe('ready');
@@ -354,7 +354,7 @@ test.describe('expanded mobile games', () => {
 
   test('mobile lobby fits the viewport and catch follows a native touch drag without scrolling', async ({ page }) => {
     await openArcade(page);
-    await expect(page.locator('[data-game]')).toHaveCount(9);
+    await expect(page.locator('[data-game]')).toHaveCount(10);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.screenshot({ path: join(tmpdir(), 'naiwa-v2-mobile.png'), fullPage: true });
     await choose(page, 'catch');

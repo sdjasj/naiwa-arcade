@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { GAMES, MAX_SCORE, makeBoard, parseBoard, boardLabel, getBoardChoices, validateScore } from '../js/leaderboard-rules.js';
 
-test('leaderboards enumerate all nine games and 41 distinct, reversible board keys', () => {
-  assert.equal(GAMES.length, 9);
-  const counts = [6, 13, 6, 2, 2, 2, 6, 2, 2];
+test('leaderboards enumerate all ten games and 77 distinct, reversible board keys', () => {
+  assert.equal(GAMES.length, 10);
+  const counts = [6, 13, 6, 2, 2, 2, 6, 2, 2, 36];
   const keys = [];
   GAMES.forEach(({ id, name }, index) => {
     assert.ok(name.includes('奶蛙'));
@@ -19,7 +20,50 @@ test('leaderboards enumerate all nine games and 41 distinct, reversible board ke
       keys.push(value);
     }
   });
-  assert.equal(new Set(keys).size, 41);
+  assert.equal(new Set(keys).size, 77);
+});
+
+test('the original 41 board keys remain available unchanged and front/back rules stay identical', () => {
+  const legacy = `v1:flappy:classic:easy v1:flappy:classic:normal v1:flappy:classic:hard
+    v1:flappy:endless:easy v1:flappy:endless:normal v1:flappy:endless:hard
+    v1:angry:classic:1 v1:angry:classic:2 v1:angry:classic:3 v1:angry:classic:4
+    v1:angry:classic:5 v1:angry:classic:6 v1:angry:classic:7 v1:angry:classic:8
+    v1:angry:classic:9 v1:angry:classic:10 v1:angry:classic:11 v1:angry:classic:12 v1:angry:endless
+    v1:whack:classic:easy v1:whack:classic:normal v1:whack:classic:hard
+    v1:whack:endless:easy v1:whack:endless:normal v1:whack:endless:hard
+    v1:catch:classic v1:catch:endless v1:jump:classic v1:jump:endless
+    v1:merge:classic:4 v1:merge:classic:6
+    v1:fighter:classic:belly v1:fighter:classic:speed v1:fighter:classic:laugh
+    v1:fighter:endless:belly v1:fighter:endless:speed v1:fighter:endless:laugh
+    v1:survivor:classic v1:survivor:endless v1:bomber:classic v1:bomber:endless`.trim().split(/\s+/);
+  assert.equal(legacy.length, 41);
+  assert.deepEqual(GAMES.filter(game => game.id !== 'aim').flatMap(game => getBoardChoices(game.id).map(choice => choice.value)).sort(), legacy.sort());
+  for (const key of legacy) assert.equal(makeBoard(parseBoard(key)), key);
+  assert.equal(readFileSync(new URL('../js/leaderboard-rules.js', import.meta.url), 'utf8'),
+    readFileSync(new URL('../server/lib/leaderboard-rules.js', import.meta.url), 'utf8'));
+});
+
+test('aim has 36 distinct mode/difficulty/drill/input boards with explicit control labels', () => {
+  assert.equal(makeBoard({ game: 'aim' }), 'v1:aim:classic:normal:grid:cursor');
+  assert.deepEqual(parseBoard('v1:aim:endless:hard:precision:fps'), {
+    game: 'aim', mode: 'endless', difficulty: 'hard', aimDrill: 'precision', aimInput: 'fps',
+  });
+  assert.equal(boardLabel('v1:aim:classic:normal:grid:cursor'), '奶蛙瞄准实验室 · 经典60秒 · 标准 · 三球速点 · 点击触屏');
+  assert.equal(boardLabel('v1:aim:endless:hard:precision:fps'), '奶蛙瞄准实验室 · 无限 · 挑战 · 精准甩枪 · 鼠标FPS');
+  assert.match(boardLabel('v1:aim:classic:easy:track:fps'), /跟枪追踪.*鼠标FPS/);
+  assert.notEqual(makeBoard({ game: 'aim', aimInput: 'fps' }), makeBoard({ game: 'aim', aimInput: 'cursor' }));
+  for (const mode of ['classic', 'endless']) for (const difficulty of ['easy', 'normal', 'hard']) {
+    for (const aimDrill of ['grid', 'precision', 'track']) for (const aimInput of ['fps', 'cursor']) {
+      const options = { game: 'aim', mode, difficulty, aimDrill, aimInput };
+      assert.deepEqual(parseBoard(makeBoard(options)), options);
+    }
+  }
+  for (const key of ['v1:aim:classic:normal', 'v1:aim:classic:normal:grid', 'v1:aim:classic:normal:grid:touch',
+    'v1:aim:classic:normal:unknown:fps', 'v1:aim:classic:normal:grid:FPS', 'v1:aim:classic:normal:grid:cursor:extra',
+    'v1:aim:classic:normal:grid:cursor\n', 'v1:aim:training:normal:grid:cursor']) assert.equal(parseBoard(key), null, key);
+  for (const options of [{ aimInput: 'touch' }, { aimDrill: 'tracking' }, { difficulty: 'expert' }, { aimInput: null }, { aimDrill: null }]) {
+    assert.equal(makeBoard({ game: 'aim', ...options }), null);
+  }
 });
 
 test('leaderboards keep difficulty, grid size, chosen fighter and actual campaign starting level separate', () => {
@@ -61,12 +105,30 @@ test('leaderboards reject aliases, missing dimensions, coercible values and host
 });
 
 test('leaderboard shared context ignores irrelevant settings and returned UI choices cannot corrupt future calls', () => {
-  assert.equal(makeBoard({ game: 'catch', difficulty: 'hard', startLevel: 12, gridSize: 6, character: 'speed' }), 'v1:catch:classic');
+  assert.equal(makeBoard({ game: 'catch', difficulty: 'hard', startLevel: 12, gridSize: 6, character: 'speed', aimDrill: 'track', aimInput: 'fps' }), 'v1:catch:classic');
   const choices = getBoardChoices('merge');
   choices[0].value = 'corrupted'; choices.length = 0;
   assert.equal(getBoardChoices('merge')[0].value, 'v1:merge:classic:4');
   const config = parseBoard('v1:fighter:classic:belly'); config.character = 'changed';
   assert.equal(parseBoard('v1:fighter:classic:belly').character, 'belly');
+});
+
+test('aim permits real 60-second scores, countdown and pauses, but bounds extreme instantaneous reports', () => {
+  for (const { value: board } of getBoardChoices('aim')) {
+    assert.equal(validateScore(board, 0, 0).ok, true);
+    assert.equal(validateScore(board, 1000, 0).ok, true);
+    assert.equal(validateScore(board, 1001, 0).code, 'score_too_fast');
+    assert.equal(validateScore(board, 150_000, 63_000).ok, true, '200 points every 80ms remains below the generous envelope');
+    assert.equal(validateScore(board, 7200, 60_000).ok, true, 'tracking gives 120 points per second');
+    assert.equal(validateScore(board, 301_001, 60_000).code, 'score_too_fast');
+    assert.equal(validateScore(board, 150_000, 3_600_000).ok, true, 'pause time is included in server wall time');
+  }
+  const classic = 'v1:aim:classic:hard:precision:fps';
+  const endless = 'v1:aim:endless:hard:precision:fps';
+  assert.equal(validateScore(classic, 2_000_000, 400_000).ok, true);
+  assert.equal(validateScore(classic, 2_000_001, 400_000).code, 'score_limit');
+  assert.equal(validateScore(endless, 2_000_001, 400_000).ok, true);
+  assert.equal(validateScore(endless, MAX_SCORE, 30 * 365 * 24 * 3600 * 1000).ok, true);
 });
 
 test('score validation is strict about integer data and permits legitimate zero-score runs', () => {

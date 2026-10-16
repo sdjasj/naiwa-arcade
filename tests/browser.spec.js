@@ -71,14 +71,14 @@ async function canvasPoint(page, x, y) {
   };
 }
 
-test('desktop lobby renders and switches between all nine games', async ({ page }) => {
+test('desktop lobby renders and switches between all ten games', async ({ page }) => {
   await openArcade(page);
   await expect(page).toHaveTitle(/奶蛙摸鱼乐园/);
-  await expect(page.locator('[data-game]')).toHaveCount(9);
+  await expect(page.locator('[data-game]')).toHaveCount(10);
   await expect(page.locator('#hero-title')).toContainText('让奶蛙替你');
   await page.screenshot({ path: join(tmpdir(), 'naiwa-desktop.png'), fullPage: true });
 
-  for (const [id, name] of [['angry', '愤怒的奶蛙'], ['whack', '暴打奶蛙'], ['catch', '奶蛙接不住'], ['jump', '奶蛙跳一跳'], ['merge', '奶蛙 2048'], ['flappy', '奶蛙飞不动']]) {
+  for (const [id, name] of [['angry', '愤怒的奶蛙'], ['whack', '暴打奶蛙'], ['catch', '奶蛙接不住'], ['jump', '奶蛙跳一跳'], ['merge', '奶蛙 2048'], ['flappy', '奶蛙飞不动'], ['fighter', '奶蛙大乱斗'], ['survivor', '奶蛙幸存者'], ['bomber', '奶蛙炸弹人'], ['aim', '奶蛙瞄准实验室']]) {
     await selectGame(page, id);
     await expect(page.locator('#current-name')).toHaveText(name);
     await expect(page.locator('[data-game][aria-pressed="true"]')).toHaveCount(1);

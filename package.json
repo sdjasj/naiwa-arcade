@@ -1,7 +1,7 @@
 {
   "name": "naiwa-arcade",
-  "version": "5.0.0",
-  "description": "大笑奶蛙摸鱼乐园：九款网页小游戏、经典与无限模式、奶蛙 2048 和全球排行榜",
+  "version": "6.0.0",
+  "description": "大笑奶蛙摸鱼乐园：十款网页小游戏，FPS 瞄准训练、经典与无限模式和全球排行榜",
   "scripts": {
     "dev": "python3 -m http.server 8080 --bind 127.0.0.1",
     "build": "node scripts/build.mjs",

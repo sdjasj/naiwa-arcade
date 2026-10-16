@@ -281,3 +281,67 @@ scenario('board request limits and identity parameters validate before querying 
   const health = await f.request('/api/health');
   assert.deepEqual(health.body, { ok: true, service: 'naiwa-leaderboard', version: 1 });
 });
+
+scenario('all 36 aim boards accept real service runs and retain distinct SQLite best-score rows', async f => {
+  const player = await f.player('瞄准分榜测试');
+  const boards = [];
+  for (const mode of ['classic', 'endless']) for (const difficulty of ['easy', 'normal', 'hard']) {
+    for (const aimDrill of ['grid', 'precision', 'track']) for (const aimInput of ['fps', 'cursor']) {
+      boards.push(makeBoard({ game: 'aim', mode, difficulty, aimDrill, aimInput }));
+    }
+  }
+  assert.equal(new Set(boards).size, 36);
+  for (const [index, board] of boards.entries()) {
+    const run = await f.run(player, board);
+    f.tick(63_000); // Classic's countdown and timed exercise; also avoids artificial test rate-limit bursts.
+    const result = await f.score(player, run, 6000 + index);
+    assert.equal(result.status, 200, board);
+    assert.equal(result.body.board, board);
+    assert.equal(result.body.improved, true);
+  }
+  for (const [index, board] of boards.entries()) {
+    const view = await f.board(board, player);
+    assert.equal(view.status, 200, board);
+    assert.equal(view.body.entries.length, 1, board);
+    assert.equal(view.body.myBest.score, 6000 + index, board);
+    assert.equal(view.body.myBest.rank, 1, board);
+  }
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS total FROM best_scores WHERE player_id = ?').get(player.id).total, 36);
+  assert.equal((await f.board(CLASSIC, player)).body.myBest, null, 'aim scores cannot enter an existing game board');
+});
+
+scenario('aim FPS and cursor remain separate across players, frozen registrations and duplicate reports', async f => {
+  const mouse = await f.player('鼠标玩家'), touch = await f.player('触屏玩家');
+  const fpsBoard = makeBoard({ game: 'aim', aimInput: 'fps' });
+  const cursorBoard = makeBoard({ game: 'aim', aimInput: 'cursor' });
+  const fpsRun = await f.run(mouse, fpsBoard), cursorRun = await f.run(touch, cursorBoard);
+  const changed = await f.request('/api/runs', { method: 'POST', token: mouse.token, body: { runId: fpsRun.runId, board: cursorBoard } });
+  assert.equal(changed.status, 409);
+  f.tick(63_000);
+  assert.equal((await f.score(mouse, fpsRun, 12_000)).status, 200);
+  assert.equal((await f.score(touch, cursorRun, 6000)).status, 200);
+  const duplicate = await f.score(mouse, fpsRun, 12_000);
+  assert.equal(duplicate.body.duplicate, true);
+  assert.equal(duplicate.body.improved, false);
+  assert.equal((await f.score(mouse, fpsRun, 12_001)).status, 409, 'aim is a finished run, not a merge checkpoint');
+  const fps = await f.board(fpsBoard, touch), cursor = await f.board(cursorBoard, mouse);
+  assert.deepEqual(fps.body.entries.map(entry => entry.playerId), [mouse.id]);
+  assert.deepEqual(cursor.body.entries.map(entry => entry.playerId), [touch.id]);
+  assert.equal(fps.body.myBest, null);
+  assert.equal(cursor.body.myBest, null);
+  assert.equal((await f.board('v1:aim:classic:normal:grid:touch')).status, 400);
+});
+
+scenario('aim validation uses service elapsed time, allows zero and long endless runs, and preserves the classic cap', async f => {
+  const player = await f.player();
+  const classic = makeBoard({ game: 'aim', aimDrill: 'precision', aimInput: 'fps' });
+  const endless = makeBoard({ game: 'aim', mode: 'endless', aimDrill: 'precision', aimInput: 'fps' });
+  const classicRun = await f.run(player, classic), endlessRun = await f.run(player, endless);
+  assert.equal((await f.score(player, classicRun, 6000)).body.error.code, 'score_too_fast');
+  f.tick(400_000);
+  assert.equal((await f.score(player, classicRun, 2_000_001)).body.error.code, 'score_limit');
+  assert.equal((await f.score(player, classicRun, 2_000_000)).status, 200);
+  assert.equal((await f.score(player, endlessRun, 2_000_001)).status, 200);
+  const zeroRun = await f.run(player, makeBoard({ game: 'aim', aimDrill: 'track' }));
+  assert.equal((await f.score(player, zeroRun, 0)).body.best.score, 0);
+});

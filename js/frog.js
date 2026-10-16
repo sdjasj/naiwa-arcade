@@ -130,8 +130,24 @@ export function drawHero(ctx, time) {
 export function drawCard(ctx, game) {
   const w = 640, h = 330;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = { flappy: '#dfeeda', angry: '#f7e9cf', whack: '#e9e6f3', catch: '#dceef1', jump: '#f1e0e8', merge: '#f2ebca', fighter: '#f1ded1', survivor: '#dbe6d9', bomber: '#e7dff0' }[game]; ctx.fillRect(0, 0, w, h);
-  if (game === 'flappy') {
+  ctx.fillStyle = { flappy: '#dfeeda', angry: '#f7e9cf', whack: '#e9e6f3', catch: '#dceef1', jump: '#f1e0e8', merge: '#f2ebca', fighter: '#f1ded1', survivor: '#dbe6d9', bomber: '#e7dff0', aim: '#172d32' }[game]; ctx.fillRect(0, 0, w, h);
+  if (game === 'aim') {
+    ctx.save();
+    ctx.strokeStyle = '#34524f'; ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 64) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+    for (let y = 0; y < h; y += 55) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+    for (const [x, y, r] of [[165, 120, 27], [360, 190, 38], [494, 95, 23]]) {
+      const glow = ctx.createRadialGradient(x-r*.35, y-r*.35, 1, x, y, r);
+      glow.addColorStop(0, '#deffe0'); glow.addColorStop(.4, '#9beac2'); glow.addColorStop(1, '#3c9f90');
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#83d6b144'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, r+9, 0, Math.PI*2); ctx.stroke();
+    }
+    ctx.strokeStyle = '#f8e9ae'; ctx.lineWidth = 2;
+    for (const [x,y,dx,dy] of [[360,174,0,-12],[360,206,0,12],[344,190,-12,0],[376,190,12,0]]) { ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+dx,y+dy); ctx.stroke(); }
+    ctx.globalAlpha = .9; drawFrog(ctx, 170, 246, 78, { pose: 'smug' });
+    ctx.fillStyle = '#b6d9bd'; ctx.font = '600 12px sans-serif'; ctx.fillText('FOCUS. CLICK. QUACK.', 298, 281);
+    ctx.restore();
+  } else if (game === 'flappy') {
     cloud(ctx, 155, 88, .8); cloud(ctx, 426, 62, .65);
     ctx.fillStyle = '#c5dcb3';ctx.beginPath();ctx.ellipse(470,366,340,120,0,0,Math.PI*2);ctx.fill();
     for (const [x,y,hh] of [[85,-20,123],[482,210,160]]) {
