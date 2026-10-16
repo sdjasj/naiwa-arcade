@@ -1,18 +1,19 @@
-import { createGame as createFlappy } from './games/flappy.js?v=8e78f42c12f7';
-import { createGame as createAngry, LEVELS } from './games/angry.js?v=8e78f42c12f7';
-import { createGame as createWhack } from './games/whack.js?v=8e78f42c12f7';
-import { createGame as createCatch } from './games/catch.js?v=8e78f42c12f7';
-import { createGame as createJump } from './games/jump.js?v=8e78f42c12f7';
-import { createGame as createMerge, FORMS, validSave } from './games/merge.js?v=8e78f42c12f7';
-import { createGame as createFighter } from './games/fighter.js?v=8e78f42c12f7';
-import { createGame as createSurvivor } from './games/survivor.js?v=8e78f42c12f7';
-import { createGame as createBomber } from './games/bomber.js?v=8e78f42c12f7';
-import { createTouchControls } from './controls.js?v=8e78f42c12f7';
-import { drawFrog, setFrogTime, frogReady, frogAnimationStatus, drawHero, drawCard } from './frog.js?v=8e78f42c12f7';
-import { GameAudio } from './audio.js?v=8e78f42c12f7';
-import { createLeaderboardClient } from './leaderboard-client.js?v=8e78f42c12f7';
-import { createLeaderboardUI } from './leaderboard-ui.js?v=8e78f42c12f7';
-import { parseBoard } from './leaderboard-rules.js?v=8e78f42c12f7';
+import { createGame as createFlappy } from './games/flappy.js?v=24b6e5778d89';
+import { createGame as createAngry, LEVELS } from './games/angry.js?v=24b6e5778d89';
+import { createGame as createWhack } from './games/whack.js?v=24b6e5778d89';
+import { createGame as createCatch } from './games/catch.js?v=24b6e5778d89';
+import { createGame as createJump } from './games/jump.js?v=24b6e5778d89';
+import { createGame as createMerge, FORMS, validSave } from './games/merge.js?v=24b6e5778d89';
+import { createGame as createFighter } from './games/fighter.js?v=24b6e5778d89';
+import { createGame as createSurvivor } from './games/survivor.js?v=24b6e5778d89';
+import { createGame as createBomber } from './games/bomber.js?v=24b6e5778d89';
+import { createGame as createAim } from './games/aim.js?v=24b6e5778d89';
+import { createTouchControls } from './controls.js?v=24b6e5778d89';
+import { drawFrog, setFrogTime, frogReady, frogAnimationStatus, drawHero, drawCard } from './frog.js?v=24b6e5778d89';
+import { GameAudio } from './audio.js?v=24b6e5778d89';
+import { createLeaderboardClient } from './leaderboard-client.js?v=24b6e5778d89';
+import { createLeaderboardUI } from './leaderboard-ui.js?v=24b6e5778d89';
+import { parseBoard } from './leaderboard-rules.js?v=24b6e5778d89';
 
 const $ = id => document.getElementById(id);
 const definitions = {
@@ -25,9 +26,11 @@ const definitions = {
   fighter: { factory: createFighter, name: '奶蛙大乱斗', title: '跳起来，也要笑着出拳。', message: '经典格斗规则：四键攻击、跑跳翻滚、方向防御与能量必杀。', start: '上台开打', instruction: '跳攻接地面，连段笑出声。', summary: '参考拳皇 98 ADVANCED：前后步法、四种跳跃、站蹲与空中四键攻击。低段蹲防，跳攻站防，命中后接必杀；积攒能量豆，爆气再放超必杀。闯关、无限、双人或练习室随你选。', keyboard: 'AD / W S · J U K I', keyboardDetail: '移动跳蹲 · 轻拳/轻脚/重拳/重脚；L 防御', touch: '方向 + 九个动作键', touchDetail: '同时按跳跃与攻击，向前后连点两次有不同步法', quote: '“别打脸，我还要负责笑。”', status: '98 风格 · 四键攻击 · 跳攻连段 · 练习室可看判定' },
   survivor: { factory: createSurvivor, name: '奶蛙幸存者', title: '笑到最后的，才是奶蛙。', message: '移动躲开围攻，自动攻击。拾取经验，选择升级，挑战首领！', start: '开始生存', instruction: '越被包围，笑得越大声。', summary: '攻击会自动瞄准敌人，你负责走位和拾取经验。升级时从 3 个强化中选择一个，搭配笑声、震波和旋转奶瓶。坚持 3 分钟并击败首领即可通关。', keyboard: 'WASD / 方向键 · 空格', keyboardDetail: '移动 · 冲刺；数字 1–3 选择升级', touch: '方向键 + 冲刺', touchDetail: '升级时点击画面中的强化卡片', quote: '“这么多人，都是来听我笑的吗？”', status: '自动攻击 · 升级三选一 · 3 分钟首领挑战' },
   bomber: { factory: createBomber, name: '奶蛙炸弹人', title: '放个笑气弹，记得跑。', message: '炸开箱子收集道具，躲开十字爆炸，清场后找到出口。', start: '开始拆箱', instruction: '笑声会传染，炸弹会连锁。', summary: '共 6 关迷宫，炸开木箱获得火力、容量和速度道具。清除对手再进入出口；放弹后及时绕到墙后，十字爆炸也会伤到自己。支持无限迷宫与同键盘双人对战。', keyboard: 'WASD / 方向键 · 空格', keyboardDetail: '移动 · 放置笑气弹', touch: '方向键 + 放炸弹', touchDetail: '可以边走边放弹，留好撤退路线', quote: '“我只是想让整个房间都笑起来。”', status: '6 关迷宫 · 连锁爆炸 · 道具强化 · 支持双人' },
+  aim: { factory: createAim, name: '奶蛙瞄准实验室', modes: true, title: '准星稳住，奶蛙忍住笑。', message: '三秒准备后开始。点击小球，或按住射击跟随移动目标。', start: '开始练枪', instruction: '先求准，再求快。', summary: '三球速点练目标切换，精准甩枪练小目标，跟枪追踪练持续控枪。60 秒挑战或无限练习，三档难度。结束后查看命中率、平均耗时和训练得分。', keyboard: '鼠标左键 · Esc / P', keyboardDetail: '射击 · 暂停释放鼠标；Enter 结束训练', touch: '点击球 / 按住跟随', touchDetail: '手机选择点击模式；跟枪需要按住目标移动', quote: '“你瞄的是小球，奶蛙笑的是空枪。”', status: '三种训练 · 60 秒 / 无限 · 命中率与反应统计' },
 };
 const ids = Object.keys(definitions);
 const endlessDescriptions = {
+  aim: { message: '无限练习，不设倒计时上限。按 Enter 或结束训练查看报告。', summary: '保持稳定节奏练速点、甩枪或跟枪。无限练习独立记分；按 Enter 或结束训练结算。Esc / P 可暂停，休息时间不计入训练耗时。', status: '无限练习 · 随时暂停 · Enter 结束结算' },
   flappy: { message: '3 颗心，穿过源源不断的水管。碰撞后短暂无敌，继续扑腾！', summary: '无限航线，3 颗心。撞到障碍扣 1 颗心，安全复位后短暂无敌；坚持越久，风景越多。生命耗尽结算得分。', status: '无限航线 · 3 颗心 · 碰撞后短暂无敌' },
   angry: { message: '工地一关接一关，每关补充弹药，挑战你的拆迁纪录！', summary: '工地持续出现，每关补充弹药，分数累计。难度逐步提升，弹药用完仍有目标时结算。无限模式单独记分。', status: '无限工地 · 每关补充弹药 · 累计得分' },
   whack: { message: '5 颗心，没有倒计时。打空或漏蛙扣心，挑战最长连击！', summary: '奶蛙不断冒头，5 颗心。漏蛙或打空扣 1 颗心，金冠蛙额外加分并回复 1 颗心（最多 5 颗），连击照常加分。节奏逐渐加快，生命耗尽结算。', status: '无限蛙田 · 5 颗心 · 打空或漏蛙扣心' },
@@ -46,7 +49,7 @@ const write = (key, value) => { try { value === null ? localStorage.removeItem(k
 const readJSON = (key, fallback) => { try { return JSON.parse(read(key, 'null')) ?? fallback; } catch { return fallback; } };
 const modes = ['easy', 'normal', 'hard'];
 const modeNames = { easy: '轻松', normal: '标准', hard: '挑战' };
-const difficulty = Object.fromEntries(['flappy', 'whack'].map(id => { const value = read(`naiwa:difficulty:${id}`, 'normal'); return [id, modes.includes(value) ? value : 'normal']; }));
+const difficulty = Object.fromEntries(['flappy', 'whack', 'aim'].map(id => { const value = read(`naiwa:difficulty:${id}`, 'normal'); return [id, modes.includes(value) ? value : 'normal']; }));
 const allowedModes = id => id === 'fighter' ? ['classic', 'endless', 'duel', 'training'] : duelDescriptions[id] ? ['classic', 'endless', 'duel'] : ['classic', 'endless'];
 const playModes = Object.fromEntries(ids.filter(id => id !== 'merge').map(id => { const value = read(`naiwa:mode:${id}`, 'classic'); return [id, allowedModes(id).includes(value) ? value : 'classic']; }));
 const characters = ['belly', 'speed', 'laugh'];
@@ -54,6 +57,16 @@ let fighterCharacter = read('naiwa:character:fighter', 'belly'), opponentCharact
 if (!characters.includes(fighterCharacter)) fighterCharacter = 'belly';
 if (!characters.includes(opponentCharacter)) opponentCharacter = 'speed';
 let gridSize = read('naiwa:board:merge', '4') === '6' ? 6 : 4;
+const aimDrills = ['grid', 'precision', 'track'];
+let aimDrill = read('naiwa:aim:drill', 'grid');
+if (!aimDrills.includes(aimDrill)) aimDrill = 'grid';
+const aimDefaultInput = canvasPointerLockAvailable() && !matchMedia('(pointer: coarse)').matches ? 'fps' : 'cursor';
+let aimInput = read('naiwa:aim:input', aimDefaultInput);
+if (!['fps', 'cursor'].includes(aimInput)) aimInput = aimDefaultInput;
+let aimSensitivity = Number(read('naiwa:aim:sensitivity', 1));
+if (!Number.isFinite(aimSensitivity) || aimSensitivity < .25 || aimSensitivity > 3) aimSensitivity = 1;
+function canvasPointerLockAvailable() { return typeof HTMLCanvasElement.prototype.requestPointerLock === 'function'; }
+let aimLockEpoch = 0, aimLockRequest = null;
 const isEndless = id => playModes[id] === 'endless';
 const isDuel = id => playModes[id] === 'duel';
 const isTraining = id => id === 'fighter' && playModes[id] === 'training';
@@ -77,11 +90,11 @@ let size = { width: 960, height: 560 };
 let leaderboardRun = null, loadedMergeSave = null;
 const leaderboardClient = createLeaderboardClient();
 const leaderboardContext = () => ({ game: activeId, mode: activeId === 'merge' ? 'classic' : playModes[activeId],
-  difficulty: difficulty[activeId] || 'normal', gridSize, startLevel: selectedLevel, character: fighterCharacter });
+  difficulty: difficulty[activeId] || 'normal', gridSize, startLevel: selectedLevel, character: fighterCharacter, aimDrill, aimInput });
 const leaderboardUI = createLeaderboardUI({ client: leaderboardClient,
   getContext: () => parseBoard(leaderboardRun?.board) || leaderboardContext(), onOpen: () => pause() });
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const bestKey = id => `naiwa:best:${id}${difficulty[id] && difficulty[id] !== 'normal' ? `:${difficulty[id]}` : ''}${isEndless(id) ? ':endless' : isDuel(id) ? ':duel' : ''}${id === 'merge' && gridSize === 6 ? ':6' : ''}`;
+const bestKey = id => `naiwa:best:${id}${difficulty[id] && difficulty[id] !== 'normal' ? `:${difficulty[id]}` : ''}${isEndless(id) ? ':endless' : isDuel(id) ? ':duel' : ''}${id === 'merge' && gridSize === 6 ? ':6' : ''}${id === 'aim' ? `:${aimDrill}:${aimInput}` : ''}`;
 const bestFor = id => { const value = Number(read(bestKey(id), 0)); return Number.isFinite(value) ? Math.max(0, value) : 0; };
 const touchControls = createTouchControls($('action-controls'), {
   down: action => { if (state === 'playing') { audio.unlock(); game?.controlDown?.(action); } },
@@ -176,6 +189,17 @@ function setScore(value) {
   refreshPuzzleControls();
 }
 function showOverlay(kind, result) {
+  $('start-button').disabled = false;
+  const aimStats = activeId === 'aim' && kind === 'ended' ? game?.getState().stats : null;
+  $('aim-results').hidden = !aimStats;
+  $('aim-results').replaceChildren();
+  if (aimStats) {
+    const rows = [ ['命中率', `${Number(aimStats.accuracy || 0).toFixed(1)}%`],
+      [aimDrill === 'track' ? '有效跟枪' : aimDrill === 'grid' ? '平均切换' : '平均反应', aimDrill === 'track' ? `${Number(aimStats.trackingHitTime || 0).toFixed(1)} 秒` : aimStats.averageReactionMs > 0 ? `${Math.round(aimStats.averageReactionMs)} ms` : '—'],
+      [aimDrill === 'track' ? '开火时长' : '命中 / 射击', aimDrill === 'track' ? `${Number(aimStats.trackingFireTime || 0).toFixed(1)} 秒` : `${aimStats.hits} / ${aimStats.shots}`],
+      ['有效训练', `${Number(aimStats.elapsed || 0).toFixed(1)} 秒`] ];
+    for (const [label, value] of rows) { const row = document.createElement('div'); row.append(Object.assign(document.createElement('dt'), { textContent: label }), Object.assign(document.createElement('dd'), { textContent: value })); $('aim-results').append(row); }
+  }
   const data = gameData(activeId);
   const saved = activeId === 'merge' ? readJSON(mergeSaveKey(), null) : null;
   const resumable = kind === 'ready' && validSave(saved, gridSize);
@@ -186,12 +210,15 @@ function showOverlay(kind, result) {
   const text = kind === 'paused' ? '继续游戏' : result?.canContinue ? '继续冲击 4096' : kind === 'ended' ? (activeId === 'angry' && !isEndless(activeId) ? '重试这一关' : '再来一局') : resumable ? '继续上局' : data.start;
   $('start-button').replaceChildren(document.createTextNode(`${text} `), Object.assign(document.createElement('span'), { textContent: '→' }));
   $('overlay-hint').textContent = kind === 'ended' ? '没关系，奶蛙的快乐没有次数限制' : '准备好迎接奶蛙的魔性笑声';
+  if (activeId === 'aim' && kind !== 'ended') $('overlay-hint').textContent = aimInput === 'fps' ? '点击开始后锁定鼠标 · Esc 释放 · Enter 结束' : '三秒准备后计时 · 跟枪时请按住目标移动';
   if (kind === 'ended') { $('result-value').textContent = String(result.score); $('start-button').focus({ preventScroll: true }); }
   refreshPuzzleControls();
 }
 function endGame(result) {
+  cancelAimLockRequest();
   if (state === 'ended') return;
   setScore(result.score); state = 'ended'; lastResult = result;
+  if (activeId === 'aim') { game.cancelInput?.(); releaseAimLock(); $('aim-finish').disabled = true; }
   if (activeId === 'angry' && !isEndless(activeId) && result.level) selectedLevel = result.level;
   $('pause-button').disabled = true; showOverlay('ended', result);
   if (activeId === 'angry') renderLevels();
@@ -214,6 +241,72 @@ function clearInput() {
     activePointer = null;
   }
 }
+function updateAimSettings() {
+  $('aim-drill').value = aimDrill; $('aim-input').value = aimInput;
+  $('aim-sensitivity').value = String(aimSensitivity);
+  $('aim-sensitivity-value').textContent = `${aimSensitivity.toFixed(2)}×`;
+  $('aim-sensitivity-setting').hidden = aimInput !== 'fps';
+  const action = aimDrill === 'track' ? '按住左键跟随移动球，松开停止开火。' : '左键单次射击，打中小球立即刷新目标。';
+  $('aim-control-note').textContent = aimInput === 'fps'
+    ? `固定中心准星，移动鼠标转动视角。${action}Esc / P 暂停释放鼠标；Enter 结束训练。`
+    : `鼠标或手指直接瞄准。${action.replace('左键', '画面')}点击与 FPS 分榜；修改训练或操控会准备新的一局。`;
+}
+function releaseAimLock() {
+  if (document.pointerLockElement === canvas) document.exitPointerLock?.();
+  $('player-window').classList.remove('aim-locked');
+}
+function cancelAimLockRequest() {
+  aimLockEpoch++;
+  aimLockRequest?.cancel();
+}
+function requestAimLock(options) {
+  if (aimLockRequest) return;
+  const epoch = ++aimLockEpoch, originalGame = game, originalState = state;
+  let timer, settled = false;
+  const cleanup = () => {
+    clearTimeout(timer);
+    document.removeEventListener('pointerlockchange', changed);
+    document.removeEventListener('pointerlockerror', failed);
+    if (aimLockRequest?.epoch === epoch) aimLockRequest = null;
+    $('start-button').disabled = false;
+  };
+  const finish = success => {
+    if (settled) return;
+    settled = true; cleanup();
+    if (epoch !== aimLockEpoch || activeId !== 'aim' || game !== originalGame || state !== originalState || document.hidden || !document.hasFocus() || $('help-dialog').open || $('leaderboard-dialog')?.open) {
+      releaseAimLock();
+      return;
+    }
+    if (success) { startGame(options); return; }
+    if (originalState === 'paused') {
+      toast('未能锁定鼠标。可再次继续，或选择点击模式重新开局。');
+      return; // A resumed FPS run must never be relabelled as a cursor run.
+    }
+    aimInput = 'cursor'; write('naiwa:aim:input', aimInput); selectGame('aim');
+    toast('鼠标锁定不可用，已切换为点击模式。');
+    startGame(options);
+  };
+  const changed = () => { if (document.pointerLockElement === canvas) finish(true); };
+  const failed = () => finish(false);
+  aimLockRequest = { epoch, cancel() { settled = true; cleanup(); } };
+  $('start-button').disabled = true;
+  document.addEventListener('pointerlockchange', changed);
+  document.addEventListener('pointerlockerror', failed);
+  timer = setTimeout(failed, 4000);
+  try {
+    if (!canvas.requestPointerLock) { failed(); return; }
+    const pending = canvas.requestPointerLock();
+    pending?.then?.(changed, failed);
+  } catch { failed(); }
+}
+document.addEventListener('pointerlockchange', () => {
+  const locked = document.pointerLockElement === canvas;
+  if (locked && (activeId !== 'aim' || aimInput !== 'fps' || (!aimLockRequest && state !== 'playing'))) {
+    releaseAimLock(); return;
+  }
+  $('player-window').classList.toggle('aim-locked', locked);
+  if (!locked && activeId === 'aim' && aimInput === 'fps' && state === 'playing') pause();
+});
 function resize() {
   const ratio = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = size.width * ratio; canvas.height = size.height * ratio;
@@ -221,6 +314,7 @@ function resize() {
 }
 function selectGame(id, scroll = false, levelOverride) {
   if (!definitions[id]) return;
+  cancelAimLockRequest(); releaseAimLock();
   audio.stopAll(); clearInput(); game?.destroy(); game = null;
   activeId = id; state = 'ready'; gameTime = 0; accumulator = 0; lastResult = null;
   leaderboardRun = null; $('leaderboard-result').hidden = true;
@@ -228,6 +322,9 @@ function selectGame(id, scroll = false, levelOverride) {
   const data = gameData(id);
   size = id === 'merge' ? { width: 560, height: 640 } : { width: 960, height: 560 };
   resize(); $('player-window').classList.toggle('puzzle-mode', id === 'merge');
+  $('player-window').classList.toggle('aim-mode', id === 'aim');
+  $('aim-settings').hidden = id !== 'aim'; $('aim-finish').hidden = id !== 'aim'; $('aim-finish').disabled = true;
+  updateAimSettings();
   $('current-name').textContent = data.name; $('game-number').textContent = `${String(ids.indexOf(id) + 1).padStart(2, '0')} / ${String(ids.length).padStart(2, '0')}`;
   $('instruction-title').textContent = data.instruction; $('instruction-summary').textContent = data.summary;
   $('keyboard-control').textContent = data.keyboard; $('keyboard-detail').textContent = data.keyboardDetail;
@@ -239,6 +336,7 @@ function selectGame(id, scroll = false, levelOverride) {
   $('play-mode-setting').hidden = id === 'merge';
   $('play-mode-select').replaceChildren(...allowedModes(id).map(value => Object.assign(document.createElement('option'), { value, textContent: { classic: '经典模式', endless: '∞ 无限模式', duel: '双人（同键盘）', training: '练习室 · 自由出招' }[value] })));
   $('play-mode-select').value = playModes[id] || 'classic';
+  if (id === 'aim') { $('play-mode-select').options[0].textContent = '60 秒挑战'; $('play-mode-select').options[1].textContent = '∞ 无限练习'; }
   $('fighter-setting').hidden = id !== 'fighter'; $('opponent-setting').hidden = id !== 'fighter' || (!isDuel(id) && !isTraining(id));
   $('opponent-setting').firstChild.nodeValue = isTraining(id) ? '木桩角色 ' : '玩家二 ';
   $('player-window').classList.toggle('fighter-mode', id === 'fighter');
@@ -248,6 +346,7 @@ function selectGame(id, scroll = false, levelOverride) {
   $('duel-guide').hidden = !isDuel(id); $('duel-guide').textContent = isDuel(id) ? duelDescriptions[id].summary : '';
   $('board-setting').hidden = id !== 'merge'; $('board-size-select').value = String(gridSize);
   $('mode-note').textContent = id === 'merge' ? '两种棋盘分别存档、分别记录最高分' : isDuel(id) ? '两人共用一把键盘，三局两胜' : isEndless(id) ? '无限续关，挑战生存纪录 · 独立记分' : data.modes ? '每种难度独立记录最高分' : id === 'angry' ? '通关保存星级，解锁下一关' : '放轻松，奶蛙替你努力';
+  if (id === 'aim') $('mode-note').textContent = '训练项目、难度、操控分别记分';
   if (isTraining(id)) $('mode-note').textContent = '无限生命与能量 · 自由练习 · 不计成绩';
   $('puzzle-controls').hidden = id !== 'merge'; levelPanel.hidden = id !== 'angry' || isEndless(id); formsPanel.hidden = id !== 'merge';
   canvas.setAttribute('aria-label', `${data.name}游戏区域。${data.message}`);
@@ -256,7 +355,7 @@ function selectGame(id, scroll = false, levelOverride) {
   loadedMergeSave = id === 'merge' ? readJSON(saveKey, null) : null;
   game = data.factory({
     canvas, ctx, ...size, drawFrog, audio, difficulty: difficulty[id] || 'normal', progress, endless: isEndless(id), multiplayer: isDuel(id), training: isTraining(id), character: fighterCharacter, opponentCharacter: isDuel(id) || isTraining(id) ? opponentCharacter : undefined, gridSize,
-    savedGame: loadedMergeSave,
+    savedGame: loadedMergeSave, aimDrill, aimInput, sensitivity: aimSensitivity,
     onScore: setScore,
     onStatus: text => { $('game-status').textContent = text; if (activeId === 'angry' && game) renderLevels(); },
     onEnd: endGame,
@@ -269,6 +368,7 @@ function selectGame(id, scroll = false, levelOverride) {
   if (scroll) $('arcade').scrollIntoView({ behavior: reducedMotion ? 'instant' : 'smooth', block: 'start' });
 }
 function startGame({ restart = false } = {}) {
+  if (activeId === 'aim' && aimInput === 'fps' && document.pointerLockElement !== canvas) { requestAimLock({ restart }); return; }
   audio.unlock(); audio.stopAll(); clearInput();
   const oldState = state;
   if (restart && activeId === 'angry' && !isEndless(activeId) && oldState !== 'ready') selectedLevel = game.getState().level;
@@ -280,9 +380,11 @@ function startGame({ restart = false } = {}) {
   $('leaderboard-result').hidden = true;
   state = 'playing';
   if (!restart && oldState === 'ended' && lastResult?.canContinue) game.continueGame();
-  else if (restart || oldState !== 'paused') { gameTime = 0; game.start({ level: activeId === 'angry' && !isEndless(activeId) ? selectedLevel : 1, fresh: restart || oldState === 'ended', difficulty: difficulty[activeId] || 'normal', endless: isEndless(activeId), multiplayer: isDuel(activeId), training: isTraining(activeId), character: fighterCharacter, opponentCharacter: isDuel(activeId) || isTraining(activeId) ? opponentCharacter : undefined }); }
+  else if (restart || oldState !== 'paused') { gameTime = 0; game.start({ level: activeId === 'angry' && !isEndless(activeId) ? selectedLevel : 1, fresh: restart || oldState === 'ended', difficulty: difficulty[activeId] || 'normal', endless: isEndless(activeId), multiplayer: isDuel(activeId), training: isTraining(activeId), character: fighterCharacter, opponentCharacter: isDuel(activeId) || isTraining(activeId) ? opponentCharacter : undefined, aimDrill, aimInput, sensitivity: aimSensitivity }); }
   if (isTraining(activeId)) game.setTrainingGuard?.($('training-guard').value);
   if (state === 'ended') return;
+  if (activeId === 'aim') $('aim-finish').disabled = false;
+  $('aim-results').hidden = true;
   lastResult = null; $('game-overlay').hidden = true; $('pause-button').disabled = false;
   $('pause-button').textContent = 'Ⅱ'; $('pause-button').setAttribute('aria-label', '暂停游戏');
   lastFrame = performance.now(); accumulator = 0; refreshPuzzleControls();
@@ -290,8 +392,9 @@ function startGame({ restart = false } = {}) {
   canvas.focus({ preventScroll: true });
 }
 function pause() {
+  cancelAimLockRequest();
   if (state !== 'playing') return;
-  state = 'paused'; clearInput(); audio.stopAll(); accumulator = 0;
+  state = 'paused'; clearInput(); audio.stopAll(); accumulator = 0; releaseAimLock();
   $('pause-button').textContent = '▶'; $('pause-button').setAttribute('aria-label', '继续游戏'); showOverlay('paused');
 }
 function point(event) {
@@ -302,24 +405,27 @@ function point(event) {
 canvas.addEventListener('pointerdown', event => {
   if (state !== 'playing' || activePointer !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
   event.preventDefault(); audio.unlock(); canvas.focus({ preventScroll: true });
-  const p = point(event); if (p.x < 0 || p.x > size.width || p.y < 0 || p.y > size.height) return;
-  activePointer = event.pointerId; canvas.setPointerCapture(event.pointerId); game.pointerDown?.(p);
+  const p = activeId === 'aim' && aimInput === 'fps' ? { x: size.width / 2, y: size.height / 2 } : point(event); if (p.x < 0 || p.x > size.width || p.y < 0 || p.y > size.height) return;
+  activePointer = event.pointerId; try { if (document.pointerLockElement !== canvas) canvas.setPointerCapture(event.pointerId); } catch {} game.pointerDown?.(p);
 });
-canvas.addEventListener('pointermove', event => { if (state === 'playing' && (activePointer === null || event.pointerId === activePointer)) game.pointerMove?.(point(event)); });
+canvas.addEventListener('pointermove', event => { if (state === 'playing' && !(activeId === 'aim' && aimInput === 'fps') && (activePointer === null || event.pointerId === activePointer)) game.pointerMove?.(point(event)); });
 canvas.addEventListener('pointerup', event => {
   if (event.pointerId !== activePointer) return;
   if (state === 'playing') game.pointerUp?.(point(event));
   activePointer = null; try { canvas.releasePointerCapture(event.pointerId); } catch {}
 });
+document.addEventListener('mousemove', event => { if (state === 'playing' && activeId === 'aim' && aimInput === 'fps' && document.pointerLockElement === canvas) game.look?.(event.movementX, event.movementY); });
+canvas.addEventListener('pointerleave', () => { if (activeId === 'aim' && aimInput === 'cursor' && activePointer === null) game?.cancelInput?.(); });
 canvas.addEventListener('pointercancel', () => { if (activePointer !== null) pause(); });
 document.addEventListener('keydown', event => {
-  if ($('help-dialog').open || event.ctrlKey || event.metaKey || event.altKey) return;
+  if ($('help-dialog').open || $('leaderboard-dialog')?.open || event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.code === 'KeyP' || event.code === 'Escape') {
     if (event.repeat) return;
     if (state === 'playing') { event.preventDefault(); pause(); }
     else if (state === 'paused' && event.code === 'KeyP') { event.preventDefault(); startGame(); }
     return;
   }
+  if (activeId === 'aim' && event.code === 'Enter' && !event.repeat && ['playing', 'paused'].includes(state) && !['INPUT', 'SELECT', 'BUTTON'].includes(event.target.tagName)) { event.preventDefault(); game.finish?.(); return; }
   if (state === 'playing' && event.target === canvas && game.keyDown?.(event)) event.preventDefault();
 });
 document.addEventListener('keyup', event => { if (state === 'playing' && !$('help-dialog').open && game.keyUp?.(event)) event.preventDefault(); });
@@ -337,6 +443,10 @@ $('training-guard').addEventListener('change', () => { if (isTraining(activeId))
 $('training-boxes').addEventListener('change', () => canvas.focus({ preventScroll: true }));
 $('training-reset').addEventListener('click', () => { if (isTraining(activeId)) startGame({ restart: true }); });
 $('board-size-select').addEventListener('change', event => { gridSize = event.target.value === '6' ? 6 : 4; write('naiwa:board:merge', gridSize); selectGame('merge'); });
+$('aim-drill').addEventListener('change', event => { aimDrill = aimDrills.includes(event.target.value) ? event.target.value : 'grid'; write('naiwa:aim:drill', aimDrill); selectGame('aim'); });
+$('aim-input').addEventListener('change', event => { aimInput = event.target.value === 'fps' ? 'fps' : 'cursor'; write('naiwa:aim:input', aimInput); selectGame('aim'); });
+$('aim-sensitivity').addEventListener('input', event => { aimSensitivity = Math.max(.25, Math.min(3, Number(event.target.value) || 1)); write('naiwa:aim:sensitivity', aimSensitivity); game?.setSensitivity?.(aimSensitivity); updateAimSettings(); });
+$('aim-finish').addEventListener('click', () => { if (activeId === 'aim' && ['playing', 'paused'].includes(state)) game.finish?.(); });
 $('start-button').addEventListener('click', () => startGame());
 $('leaderboard-button').addEventListener('click', () => leaderboardUI.open());
 $('leaderboard-result-open').addEventListener('click', () => leaderboardUI.open());
@@ -384,5 +494,5 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 if (new URLSearchParams(location.search).has('debug')) {
-  Object.defineProperty(window, '__arcade', { value: { getState: (options = {}) => ({ id: activeId, state, score, soundEnabled, animations: frogAnimationStatus(), difficulty: difficulty[activeId], playMode: playModes[activeId], fighterCharacter, opponentCharacter, gridSize, selectedLevel, progress, game: game.getState(options) }) } });
+  Object.defineProperty(window, '__arcade', { value: { getState: (options = {}) => ({ id: activeId, state, score, soundEnabled, animations: frogAnimationStatus(), difficulty: difficulty[activeId], playMode: playModes[activeId], fighterCharacter, opponentCharacter, gridSize, selectedLevel, progress, aimDrill, aimInput, aimSensitivity, aimLocked: document.pointerLockElement === canvas, game: game.getState(options) }) } });
 }
