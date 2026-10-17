@@ -1,6 +1,6 @@
 {
   "name": "naiwa-arcade",
-  "version": "7.1.0",
+  "version": "7.1.1",
   "description": "奶家人摸鱼乐园：十一款网页小游戏，奶蛙、奶蛋、奶狗、奶鼠换装，梗语音、单人掼蛋和全球排行榜",
   "scripts": {
     "dev": "python3 -m http.server 8080 --bind 127.0.0.1",

@@ -3,7 +3,7 @@
  *
  * NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ \
  *   node scripts/test-cast-live.mjs
- * Optional: NAIWA_EXPECT_VERSION (default 7.1.0), NAIWA_EXPECT_BUILD,
+ * Optional: NAIWA_EXPECT_VERSION (default 7.1.1), NAIWA_EXPECT_BUILD,
  * PLAYWRIGHT_FIREFOX_EXECUTABLE; uses the environment HTTPS/HTTP proxy.
  *
  * Uses only cosmetic controls, voice previews and the Guandan ready screen.
@@ -16,7 +16,7 @@ import { writeFile } from 'node:fs/promises';
 import { firefox, expect } from '@playwright/test';
 
 if (process.argv.includes('--help')) {
-  console.log('Usage: NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ node scripts/test-cast-live.mjs\nRead-only Firefox check: four cosmetic portraits, saved preferences, Guandan ready seats, real voice decoding/playback and mute.\nOptional NAIWA_EXPECT_VERSION (default 7.1.0), NAIWA_EXPECT_BUILD, PLAYWRIGHT_FIREFOX_EXECUTABLE. Screenshots go to /tmp/naiwa-cast-live-*.png. No game or leaderboard identity is created.');
+  console.log('Usage: NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ node scripts/test-cast-live.mjs\nRead-only Firefox check: four cosmetic portraits, saved preferences, Guandan ready seats, real voice decoding/playback and mute.\nOptional NAIWA_EXPECT_VERSION (default 7.1.1), NAIWA_EXPECT_BUILD, PLAYWRIGHT_FIREFOX_EXECUTABLE. Screenshots go to /tmp/naiwa-cast-live-*.png. No game or leaderboard identity is created.');
   process.exit(0);
 }
 if (!process.env.NAIWA_TEST_URL) throw new Error('Set NAIWA_TEST_URL explicitly. Use --help for usage.');
@@ -112,7 +112,7 @@ async function main() {
     if (!response.ok) throw new Error(`Release metadata returned HTTP ${response.status()}`);
     return response.json();
   });
-  assert.equal(release.version, process.env.NAIWA_EXPECT_VERSION || '7.1.0', 'Unexpected deployed version.');
+  assert.equal(release.version, process.env.NAIWA_EXPECT_VERSION || '7.1.1', 'Unexpected deployed version.');
   if (process.env.NAIWA_EXPECT_BUILD) assert.equal(release.build, process.env.NAIWA_EXPECT_BUILD, 'Unexpected deployed build.');
   await expect(page.locator('#cast-choices [data-skin]')).toHaveCount(4);
   await expect.poll(async () => new Set(await portraitHashes(page)).size, { timeout }).toBe(4);
@@ -171,7 +171,7 @@ async function main() {
   await page.locator('#player-window').screenshot({ path: '/tmp/naiwa-cast-live-guandan-ready.png' });
   const canvas = await page.locator('#game-canvas').evaluate(element => element.toDataURL('image/png').split(',')[1]);
   await writeFile('/tmp/naiwa-cast-live-guandan-canvas.png', Buffer.from(canvas, 'base64'));
-  for (const file of ['cast/naidan-v1.webp', 'cast/naigou-v1.webp', 'cast/naishu-v1.webp', 'voices/kakatte.mp3', 'voices/andy.mp3']) {
+  for (const file of ['cast/naidan-v1.webp', 'cast/naigou-v1.webp', 'cast/naishu-v1.webp', 'voices/kakatte.mp3', 'voices/andy-v2.mp3']) {
     assert.ok([...resources].some(([path, status]) => path.endsWith(`/assets/${file}`) && status === 200), `Expected real HTTP 200 for ${file}`);
   }
   await ready(page);

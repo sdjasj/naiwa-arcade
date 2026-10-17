@@ -3,14 +3,15 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { VOICE_LINES, voiceForEvent } from '../js/voice-lines.js';
 
-test('recorded line manifest gives truthful originals and only local short assets', async () => {
+test('recorded line manifest maps stable IDs to distinct local short assets', async () => {
   assert.deepEqual(Object.keys(VOICE_LINES), ['kakatte', 'andy']);
   assert.equal(VOICE_LINES.kakatte.original, 'かかってらっしゃい');
   assert.equal(VOICE_LINES.andy.original, 'アンディ');
+  const files = { kakatte: 'kakatte.mp3', andy: 'andy-v2.mp3' };
   for (const [id, line] of Object.entries(VOICE_LINES)) {
     assert.equal(line.id, id);
-    assert.equal(line.file, `../assets/voices/${id}.mp3`);
-    const bytes = await readFile(new URL(`../assets/voices/${id}.mp3`, import.meta.url));
+    assert.equal(line.file, `../assets/voices/${files[id]}`);
+    const bytes = await readFile(new URL(line.file, import.meta.url));
     assert.ok(bytes.length > 5000 && bytes.length < 50_000, `${id} must be a small real audio excerpt`);
     assert.equal(bytes.toString('ascii', 0, 3), 'ID3');
     const tagSize = ((bytes[6] & 127) << 21) + ((bytes[7] & 127) << 14) + ((bytes[8] & 127) << 7) + (bytes[9] & 127);

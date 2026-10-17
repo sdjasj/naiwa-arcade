@@ -359,7 +359,7 @@ test('first-gesture preview creates and unlocks a context, loads once, and does 
     assert.equal(audio.context.state, 'running');
     assert.equal(audio.laughSource.voiceId, 'kakatte');
     assert.equal(requests.filter(url => url.endsWith('/voices/kakatte.mp3')).length, 1);
-    assert.equal(requests.filter(url => url.endsWith('/voices/andy.mp3')).length, 1);
+    assert.equal(requests.filter(url => url.endsWith('/voices/andy-v2.mp3')).length, 1);
     audio.stopAll();
     assert.equal(await audio.previewVoice('andy'), true);
     assert.equal(requests.length, 3, 'laugh and two lines are each loaded once');
@@ -440,7 +440,7 @@ test('an explicit preview recovers after transient loading failure while automat
     online = true;
     assert.equal(await audio.previewVoice('andy'), true, 'a new user request retries and plays the recovered recording');
     assert.equal(requests.length, 3);
-    assert.ok(requests[2].endsWith('/voices/andy.mp3'));
+    assert.ok(requests[2].endsWith('/voices/andy-v2.mp3'));
     assert.equal(audio.voiceLoads.size, 0, 'successful settled promises are also removed');
     assert.equal(audio.laughSource.voiceId, 'andy');
     assert.ok(audio.voiceBuffers.has('andy'));
