@@ -1,4 +1,4 @@
-import { createDeck, shuffleDeck, sortHand, classify, beats, legalPlays, choosePlay } from './guandan-rules.js?v=13a5c1ec0c6e';
+import { createDeck, shuffleDeck, sortHand, classify, beats, legalPlays, choosePlay } from './guandan-rules.js?v=8fb8b395f3ed';
 
 const NAMES = ['你', '右手对手', '对家队友', '左手对手'];
 const SUITS = { S: '♠', H: '♥', D: '♦', C: '♣' };
