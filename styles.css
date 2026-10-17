@@ -167,6 +167,88 @@
 .aim-mode .game-overlay { overflow: auto; }
 .aim-mode .overlay-card { max-width: 460px; }
 .aim-mode .overlay-card p { white-space: pre-line; }
+
+/* The card table uses native buttons for a readable, touchable 27-card hand. */
+.guandan-art { background: #254e46; }
+.guandan-art .art-caption { color: #e5d9a7; }
+.guandan-mode .canvas-stage { background: #173d34; }
+.guandan-mode .game-overlay { overflow: auto; }
+.guandan-controls { padding: 16px 18px 12px; background: #eef2e7; border-top: 1px solid #d8e0ce; }
+.guandan-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: #738367; font-size: 11px; }
+.guandan-heading strong { color: #3e614c; background: #dce7d4; padding: 5px 9px; border-radius: 5px; }
+#guandan-hand-count { margin-left: auto; font-size: 10px; }
+.guandan-message { min-height: 20px; margin: 10px 0 8px; font-size: 12px; line-height: 1.7; color: #6e7c62; }
+.your-turn .guandan-message { color: #2d6246; font-weight: 600; }
+.guandan-hand { display: grid; grid-template-columns: repeat(14,minmax(0,1fr)); gap: 5px; padding: 10px 0 3px; min-height: 100px; align-content: start; }
+.playing-card { min-width: 0; height: 78px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 4px 1px; border: 1px solid #c9d0bf; border-radius: 5px; color: #35433d; background: #fffef7; box-shadow: 0 2px 0 #bbc6b1; transition: transform .12s, background .12s; position: relative; }
+.playing-card b { font-family: Georgia,serif; font-size: 21px; line-height: 1.1; }
+.playing-card > span { font-size: 17px; line-height: 1.1; }
+.playing-card small { height: 12px; font-size: 8px; font-weight: 600; color: #7b8459; }
+.playing-card.red { color: #aa4b43; }
+.playing-card.level-card { border-color: #ad995c; }
+.playing-card.wild { background: #fff3ca; box-shadow: 0 2px 0 #c3a65f; }
+.playing-card.wild small { color: #a36c27; }
+.playing-card.selected { transform: translateY(-7px); background: #dfeecf; border: 2px solid #4f7e4e; box-shadow: 0 3px 0 #4f7e4e; }
+.playing-card:disabled { opacity: 1; cursor: default; }
+.playing-card:focus-visible { outline-offset: 2px; z-index: 1; }
+.guandan-selection { min-height: 17px; margin: 10px 0 12px; color: #7c886a; font-size: 10px; line-height: 1.7; }
+.guandan-interpretation { display: flex; align-items: center; gap: 8px; color: #768366; font-size: 11px; margin: 0 0 12px; }
+.guandan-interpretation select { min-width: 0; max-width: 75%; padding: 7px; border: 1px solid #cbd7bd; border-radius: 5px; color: #3c6245; background: #fffdf3; font: inherit; }
+.guandan-actions { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 8px; }
+.guandan-actions button { min-height: 40px; border: 1px solid #c9d7bd; border-radius: 7px; background: #fcfdf5; color: #516e43; font-size: 12px; font-weight: 600; }
+.guandan-actions button small { margin-left: 5px; font-size: 9px; opacity: .6; font-weight: 400; }
+.guandan-actions #guandan-play { background: #365c43; border-color: #365c43; color: #fffef1; }
+.guandan-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.guandan-tools button { min-height: 32px; border: 1px solid #cbd4bf; background: #e5ebdb; padding: 5px 12px; border-radius: 6px; font-size: 11px; color: #5c7250; }
+.guandan-tools button[aria-pressed="true"] { background: #e8d5a8; border-color: #bda468; color: #7c5c2b; }
+.guandan-tools > span { font-size: 9px; color: #8b987e; margin-right: auto; }
+#guandan-next { background: #365c43; color: #fffef1; border-color: #365c43; }
+.guandan-tribute { border-top: 1px dashed #d3dcc6; padding-top: 10px; color: #8b805e; font-size: 10px; line-height: 1.8; margin-bottom: 0; }
+.guandan-guide { border-top: 1px solid #e1e5d7; background: #f9f8ed; font-size: 11px; }
+.guandan-guide summary { padding: 12px 16px; cursor: pointer; color: #6e7758; font-weight: 600; }
+.guandan-guide > div { padding: 0 16px 12px; line-height: 1.9; color: #788368; }
+.guandan-mode .overlay-card { max-width: 440px; }
+.player-window:fullscreen.guandan-mode .guandan-controls { flex-shrink: 0; max-height: 48dvh; overflow-y: auto; }
+.player-window:fullscreen.guandan-mode .guandan-guide { display: none; }
+@media(max-width:600px) {
+  .guandan-controls { padding: 12px 10px; }
+  .guandan-hand { grid-template-columns: repeat(9,minmax(0,1fr)); gap: 5px 4px; }
+  .playing-card { height: 59px; }
+  .playing-card b { font-size: 17px; }
+  .playing-card > span { font-size: 14px; }
+  .playing-card small { font-size: 7px; height: 10px; }
+  .playing-card.selected { transform: translateY(-5px); }
+  .guandan-heading { font-size: 10px; gap: 6px; }
+  #guandan-hand-count { font-size: 9px; }
+  .guandan-message { font-size: 11px; }
+  .guandan-actions { gap: 6px; }
+  .guandan-actions button { min-height: 40px; font-size: 11px; }
+  .guandan-actions button small { display: none; }
+  .guandan-tools > span { display: none; }
+  #guandan-next { margin-left: auto; }
+  .guandan-mode .canvas-stage { aspect-ratio: 1.5; }
+  .guandan-mode .overlay-card { max-width: 280px; padding: 16px 18px; }
+  .guandan-mode .overlay-card h3 { font-size: 17px; }
+  .guandan-mode .overlay-card p { margin-bottom: 10px; font-size: 10px; }
+  .guandan-mode .overlay-hint { margin-top: 8px; font-size: 8px; }
+}
+@media(max-height:600px) and (min-aspect-ratio:1/1) {
+  .player-window:fullscreen.guandan-mode { display: grid; grid-template-columns: minmax(0,1fr) minmax(320px,44%); grid-template-rows: 40px minmax(0,1fr) 32px; height: 100dvh; }
+  .player-window:fullscreen.guandan-mode .player-toolbar { grid-area: 1/1/2/3; height: 40px; }
+  .player-window:fullscreen.guandan-mode .canvas-stage { grid-area: 2/1; min-width: 0; }
+  .player-window:fullscreen.guandan-mode .guandan-controls { grid-area: 2/2; min-height: 0; max-height: none; padding: 8px; }
+  .player-window:fullscreen.guandan-mode .guandan-hand { grid-template-columns: repeat(9,minmax(0,1fr)); gap: 4px; padding-top: 5px; min-height: 0; }
+  .player-window:fullscreen.guandan-mode .playing-card { height: 41px; }
+  .player-window:fullscreen.guandan-mode .playing-card b { font-size: 14px; }
+  .player-window:fullscreen.guandan-mode .playing-card > span { font-size: 11px; }
+  .player-window:fullscreen.guandan-mode .playing-card small { display: none; }
+  .player-window:fullscreen.guandan-mode .guandan-selection { margin: 5px 0; }
+  .player-window:fullscreen.guandan-mode .guandan-message { margin: 4px 0; font-size: 10px; }
+  .player-window:fullscreen.guandan-mode .guandan-actions button { min-height: 30px; }
+  .player-window:fullscreen.guandan-mode .guandan-tools { margin-top: 6px; }
+  .player-window:fullscreen.guandan-mode .guandan-tools > span { display: none; }
+  .player-window:fullscreen.guandan-mode .player-footer { grid-area: 3/1/4/3; height: 32px; }
+}
 @media(max-width:520px) {
   .aim-settings { padding: 13px 12px; }
   .aim-setting-title { align-items: start; }

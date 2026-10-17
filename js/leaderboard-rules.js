@@ -6,6 +6,7 @@ export const GAMES = Object.freeze([
   ['catch', '奶蛙接不住'], ['jump', '奶蛙跳一跳'], ['merge', '奶蛙 2048'],
   ['fighter', '奶蛙大乱斗'], ['survivor', '奶蛙幸存者'], ['bomber', '奶蛙炸弹人'],
   ['aim', '奶蛙瞄准实验室'],
+  ['guandan', '奶蛙掼蛋'],
 ].map(([id, name]) => Object.freeze({ id, name })));
 
 const gameNames = new Map(GAMES.map(({ id, name }) => [id, name]));
@@ -76,8 +77,9 @@ export function parseBoard(key) {
 export function boardLabel(key) {
   const config = parseBoard(key);
   if (!config) return '';
-  const classicLabel = config.game === 'aim' ? '经典60秒' : '经典';
-  const parts = [gameNames.get(config.game), config.mode === 'classic' ? classicLabel : '无限'];
+  const classicLabel = config.game === 'aim' ? '经典60秒' : config.game === 'guandan' ? '经典单局' : '经典';
+  const endlessLabel = config.game === 'guandan' ? '无限升级' : '无限';
+  const parts = [gameNames.get(config.game), config.mode === 'classic' ? classicLabel : endlessLabel];
   if (config.difficulty) parts.push(difficultyNames[config.difficulty]);
   if (config.startLevel) parts.push(`第 ${config.startLevel} 关起`);
   if (config.gridSize) parts.push(`${config.gridSize}×${config.gridSize} · 可撤销`);
@@ -87,7 +89,7 @@ export function boardLabel(key) {
   return parts.join(' · ');
 }
 
-/** UI options and server allowlist share the same finite set (77 boards). */
+/** UI options and server allowlist share the same finite set (79 boards). */
 export function getBoardChoices(game) {
   if (!gameNames.has(game)) return [];
   const configs = [];
@@ -111,7 +113,7 @@ export function getBoardChoices(game) {
 // This matches the existing 2048 save's integer range and remains generous for
 // long endless sessions. There is deliberately no maximum session duration.
 export const MAX_SCORE = 2 ** 40 - 1;
-const CLASSIC_LIMITS = Object.freeze({ whack: 20_000, catch: 10_000, jump: 2_000, angry: 100_000, fighter: 100_000, bomber: 100_000, aim: 2_000_000 });
+const CLASSIC_LIMITS = Object.freeze({ whack: 20_000, catch: 10_000, jump: 2_000, angry: 100_000, fighter: 100_000, bomber: 100_000, aim: 2_000_000, guandan: 1000 });
 const SCORE_ENVELOPES = Object.freeze({
   flappy: Object.freeze({ headroom: 10, perSecond: 4 }),
   whack: Object.freeze({ headroom: 100, perSecond: 500 }),
@@ -122,6 +124,7 @@ const SCORE_ENVELOPES = Object.freeze({
   survivor: Object.freeze({ headroom: 10_000, perSecond: 20_000 }),
   bomber: Object.freeze({ headroom: 10_000, perSecond: 20_000 }),
   aim: Object.freeze({ headroom: 1000, perSecond: 5000 }),
+  guandan: Object.freeze({ headroom: 1000, perSecond: 200 }),
 });
 const invalid = (code, error) => ({ ok: false, code, error });
 

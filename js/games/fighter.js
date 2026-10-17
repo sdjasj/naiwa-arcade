@@ -1,4 +1,4 @@
-import { createFighterInput } from './fighter-input.js?v=24b6e5778d89';
+import { createFighterInput } from './fighter-input.js?v=5593d280b2fe';
 
 const W = 960;
 const H = 560;

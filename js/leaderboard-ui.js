@@ -1,4 +1,4 @@
-import { GAMES, makeBoard, boardLabel, getBoardChoices } from './leaderboard-rules.js?v=24b6e5778d89';
+import { GAMES, makeBoard, boardLabel, getBoardChoices } from './leaderboard-rules.js?v=5593d280b2fe';
 
 const formatNumber = value => new Intl.NumberFormat('zh-CN').format(Math.max(0, Math.floor(Number(value) || 0)));
 const hasNickname = profile => typeof profile?.nickname === 'string' && profile.nickname.trim().length > 0;

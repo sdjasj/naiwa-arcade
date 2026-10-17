@@ -1,5 +1,5 @@
-import { LEADERBOARD_API } from './leaderboard-config.js?v=24b6e5778d89';
-import { makeBoard, parseBoard } from './leaderboard-rules.js?v=24b6e5778d89';
+import { LEADERBOARD_API } from './leaderboard-config.js?v=5593d280b2fe';
+import { makeBoard, parseBoard } from './leaderboard-rules.js?v=5593d280b2fe';
 
 const PREFIX = 'naiwa:leaderboard:v1:';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
