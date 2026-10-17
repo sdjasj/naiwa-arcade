@@ -474,7 +474,7 @@ export function createGame(env) {
       ctx.globalAlpha = player.invincible > 0 ? 0.65 + Math.sin(time * 22) * 0.25 : 1;
       const color = player.playerIndex ? '#9f79b0' : '#5a9ba4';
       ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(p.x, p.y + 14, 19, 7, 0, 0, Math.PI * 2); ctx.stroke();
-      drawFrog(ctx, p.x, p.y + 1, 31, { pose: player.held.some((action) => action in DIRECTIONS) ? 'run' : player.playerIndex ? 'angry' : 'smug' });
+      drawFrog(ctx, p.x, p.y + 1, 31, { skinSlot: player.playerIndex, pose: player.held.some((action) => action in DIRECTIONS) ? 'run' : player.playerIndex ? 'angry' : 'smug' });
       ctx.globalAlpha = 1;
       box(p.x - 12, p.y - 28, 24, 13, 5, color); label(`${player.playerIndex + 1}P`, p.x, p.y - 21, 10, '#fffef5');
     }

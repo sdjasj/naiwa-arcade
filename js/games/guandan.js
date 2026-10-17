@@ -1,6 +1,6 @@
-import { createDeck, shuffleDeck, sortHand, classify, beats, legalPlays, choosePlay } from './guandan-rules.js?v=5593d280b2fe';
+import { createDeck, shuffleDeck, sortHand, classify, beats, legalPlays, choosePlay } from './guandan-rules.js?v=13a5c1ec0c6e';
 
-const NAMES = ['你', '右手奶蛙', '对家奶蛙', '左手奶蛙'];
+const NAMES = ['你', '右手对手', '对家队友', '左手对手'];
 const SUITS = { S: '♠', H: '♥', D: '♦', C: '♣' };
 const FACE = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
 const CELEBRATION = 2.4;
@@ -111,7 +111,7 @@ export function createGame(env) {
     hands = hands.map(hand => sortHand(hand, level));
     for (let id = 0; id < 4; id++) animate(id, 'idle', 0);
     phase = 'playing'; prepareTurn(leader);
-    notify(`第 ${round} 局 · 打 ${rankText(level)} · ${NAMES[leader]}先出。${previous ? tributeLog.at(-1) : '你与对家奶蛙同队。'}`);
+    notify(`第 ${round} 局 · 打 ${rankText(level)} · ${NAMES[leader]}先出。${previous ? tributeLog.at(-1) : '你与对家队友同队。'}`);
   }
   function start(options = {}) {
     if (destroyed) return false;
@@ -188,7 +188,7 @@ export function createGame(env) {
     // Victory/taunt is an actual audible event for either team, including the
     // opponents. The host remains in playing state for the whole celebration.
     sound('win'); sound('laugh:victory');
-    const text = winner === 0 ? '你们赢啦！对家笑得肚皮都在抖。' : '对面赢啦！两只奶蛙正捧着肚皮笑你。';
+    const text = winner === 0 ? '你们赢啦！对家笑得肚皮都在抖。' : '对面赢啦！两位对手正捧着肚皮笑你。';
     const upgradeText = passedA ? '成功过 A，重新从 2 出发。' : `升 ${upgrade} 级，下次打 ${rankText(teamLevels[winner])}。`;
     notify(`${text}${doubleDown ? ' 双上游！' : ''}${endless ? upgradeText : ''}`); note(text);
   }
@@ -345,11 +345,13 @@ export function createGame(env) {
         ctx.beginPath(); ctx.ellipse(x, y + 30, 61, 19, 0, 0, Math.PI * 2);
         ctx.fillStyle = winner ? '#edcf676b' : '#a9dfa54d'; ctx.fill();
       }
-      drawFrog?.(ctx, x, y, 54, { animation: animations[id].name, animationTime: animations[id].time,
+      drawFrog?.(ctx, x, y, 54, { skinSlot: id, animation: animations[id].name, animationTime: animations[id].time,
         expression: animations[id].name === 'laugh' ? 'laugh' : animations[id].name === 'hurt' ? 'hurt' : 'happy',
         scaleX: id === 1 ? -1 : 1 });
       const count = phase === 'idle' ? 27 : hands[id].length;
-      text(`${NAMES[id]}${id === 2 ? ' · 队友' : ''}${id === 0 && auto ? ' · 托管' : ''}`, x, y - 54, 18, id % 2 === 0 ? '#f5e8a0' : '#e7f1df', 750);
+      const skinName = env.getSkinName?.({ skinSlot: id });
+      const seatName = skinName ? `${['你', '右手', '对家', '左手'][id]} · ${skinName}` : NAMES[id];
+      text(`${seatName}${id === 2 ? ' · 队友' : ''}${id === 0 && auto ? ' · 托管' : ''}`, x, y - 54, 18, id % 2 === 0 ? '#f5e8a0' : '#e7f1df', 750);
       rounded(x - 43, y + 46, 86, 28, 12, current ? '#e4edba' : '#173e34');
       text(!count && round ? `${finishOrder.indexOf(id) + 1} 游` : `剩 ${count} 张`, x, y + 60, 17, current ? '#244c35' : '#e4ecd3', 750);
       if (current) text(id === 0 && !auto ? '轮到你了' : '想牌中…', x, y + 93, 14, '#e2da8f', 600);
@@ -363,7 +365,7 @@ export function createGame(env) {
       cards.forEach((card, index) => renderCard(card, 480 - total / 2 + index * (w + gap), 249, w, 78));
       if (lastPlay.combo.substitutions?.length && !['celebrating', 'roundEnd', 'ended'].includes(phase)) text('红桃级牌已作百搭解释', 480, 350, 12, '#c9c394');
     } else {
-      text(phase === 'idle' ? '双副牌 · 四只蛙 · 两队搭档' : `${NAMES[turn]}领出新一轮`, 480, 265, 22, '#e5ebcd', 700);
+      text(phase === 'idle' ? '双副牌 · 奶家人 · 两队搭档' : `${NAMES[turn]}领出新一轮`, 480, 265, 22, '#e5ebcd', 700);
       text(phase === 'idle' ? '你的手牌会显示在桌面下方' : '先出完不算完，记得帮对家。', 480, 303, 16, '#afc6ad');
     }
     if (['celebrating', 'roundEnd', 'ended'].includes(phase) && lastResult) {

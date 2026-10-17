@@ -7,8 +7,8 @@
   <meta name="description" content="十一款大笑奶蛙网页小游戏：新增四人人机掼蛋，对家合作、百搭炸弹、连续升级和奶蛙捧腹大笑。还有 FPS 练枪、格斗、2048 与全球排行榜。免费在线玩，支持电脑和手机。">
   <title>奶蛙摸鱼乐园 · 快乐不需要理由</title>
   <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=5593d280b2fe">
-  <link rel="stylesheet" href="./leaderboard.css?v=5593d280b2fe">
+  <link rel="stylesheet" href="./styles.css?v=13a5c1ec0c6e">
+  <link rel="stylesheet" href="./leaderboard.css?v=13a5c1ec0c6e">
 </head>
 <body>
   <a class="skip-link" href="#arcade">跳到游戏</a>
@@ -20,11 +20,11 @@
     <section class="hero wrap" aria-labelledby="hero-title">
       <div class="hero-copy">
         <div class="eyebrow"><span class="live-dot"></span> 今日宜摸鱼 · 忌太认真</div>
-        <h1 id="hero-title">生活已经够难了，<br>让奶蛙替你<span class="green-text">发疯。</span><svg class="title-scribble" viewBox="0 0 160 14" aria-hidden="true"><path d="M3 9Q70 1 154 7M24 13Q87 5 141 11"/></svg></h1>
-        <p class="hero-description">经典小游戏，熟悉的快乐，离谱的奶蛙。<br>不必大获全胜，笑出声就算赢。</p>
+        <h1 id="hero-title">生活已经够难了，<br>让<span id="hero-cast-name">奶蛙</span>替你<span class="green-text">发疯。</span><svg class="title-scribble" viewBox="0 0 160 14" aria-hidden="true"><path d="M3 9Q70 1 154 7M24 13Q87 5 141 11"/></svg></h1>
+        <p class="hero-description">经典小游戏，熟悉的快乐，离谱的<span id="hero-description-name">奶蛙</span>。<br>不必大获全胜，笑出声就算赢。</p>
         <a class="primary-button hero-cta" href="#arcade">开始摸鱼 <span aria-hidden="true">↗</span></a><span class="hero-note">无需下载，点开就玩</span>
       </div>
-      <div class="hero-art" aria-label="网上的大笑奶蛙：黄色梨形身体、奶油肚皮、绿色圆眼，捧腹狂笑着拍动小翅膀" role="img"><div class="hero-circle"></div><canvas id="hero-canvas" width="620" height="430" aria-hidden="true"></canvas><span class="speech-bubble">我没飞不动，<br>我在等风来。</span><span class="art-sticker">100% 奶蛙<br><b>0% 班味</b></span><span class="hero-star star-one">✳</span><span class="hero-star star-two">✦</span></div>
+      <div class="hero-art" aria-label="网上的大笑奶蛙：黄色梨形身体、奶油肚皮、绿色圆眼，捧腹狂笑着拍动小翅膀" role="img"><div class="hero-circle"></div><canvas id="hero-canvas" width="620" height="430" aria-hidden="true"></canvas><span class="speech-bubble">我没飞不动，<br>我在等风来。</span><span class="art-sticker"><span>100% <span id="hero-sticker-name">奶蛙</span></span><b>0% 班味</b></span><span class="hero-star star-one">✳</span><span class="hero-star star-two">✦</span></div>
     </section>
     <section id="games" class="games-section wrap" aria-labelledby="games-title">
       <div class="section-heading"><div><span class="section-kicker">THE HAPPY COLLECTION · VOL. 05</span><h2 id="games-title">挑一个，快乐开摆<span class="green-text">。</span></h2></div><span class="section-note">11 款小游戏 <span>／</span> 0 元快乐</span></div>
@@ -44,7 +44,11 @@
       </div>
     </section>
     <section id="arcade" class="arcade-section wrap" aria-labelledby="arcade-title">
-      <div class="section-heading"><div><span class="section-kicker">LET’S PLAY A LITTLE</span><h2 id="arcade-title">摸鱼时间，现在开始<span class="green-text">。</span></h2></div><span class="section-note"><span class="live-dot"></span> 奶蛙已就位</span></div>
+      <div class="section-heading"><div><span class="section-kicker">LET’S PLAY A LITTLE</span><h2 id="arcade-title">摸鱼时间，现在开始<span class="green-text">。</span></h2></div><span class="section-note"><span class="live-dot"></span> <span id="cast-ready-name">奶蛙</span>已就位</span></div>
+      <section class="cast-settings" id="cast-settings" aria-labelledby="cast-title">
+        <div class="cast-picker"><div class="cast-heading"><span class="section-kicker">CHOOSE YOUR LITTLE CHAOS</span><h3 id="cast-title">今天，让 <strong id="cast-current-name">奶蛙</strong> 陪你玩。</h3></div><div class="cast-choices" id="cast-choices" role="group" aria-label="选择全站角色外观"></div><p id="cast-status" class="cast-note" role="status">全站换装，随时切换。</p></div>
+        <div class="voice-settings"><label for="voice-pack-select">快乐配音 <select id="voice-pack-select"><option value="meme">梗语音混播</option><option value="classic">经典笑声</option></select></label><div class="voice-previews" id="voice-previews" aria-label="试听梗语音"><button type="button" data-voice-preview="kakatte" title="原句：かかってらっしゃい">▶ 试听 · 刚刚跌落水</button><button type="button" data-voice-preview="andy">▶ 试听 · 安迪</button></div><p id="voice-preview-status" class="cast-note" role="status">点击试听；游戏中试听会先暂停。</p></div>
+      </section>
       <div class="game-settings"><label>换个游戏 <select id="game-select" aria-label="快速切换游戏"><option value="flappy">01 奶蛙飞不动</option><option value="angry">02 愤怒的奶蛙</option><option value="whack">03 暴打奶蛙</option><option value="catch">04 奶蛙接不住</option><option value="jump">05 奶蛙跳一跳</option><option value="merge">06 奶蛙 2048</option><option value="fighter">07 奶蛙大乱斗</option><option value="survivor">08 奶蛙幸存者</option><option value="bomber">09 奶蛙炸弹人</option><option value="aim">10 奶蛙瞄准实验室</option><option value="guandan">11 奶蛙掼蛋</option></select></label><label id="play-mode-setting">玩法 <select id="play-mode-select" aria-label="游戏模式"><option value="classic">经典模式</option><option value="endless">∞ 无限模式</option></select></label><label id="board-setting" hidden>棋盘 <select id="board-size-select" aria-label="2048 棋盘尺寸"><option value="4">4×4 · 经典棋盘</option><option value="6">6×6 · 大棋盘</option></select></label><label id="difficulty-setting">难度 <select id="difficulty-select" aria-label="游戏难度"><option value="easy">轻松</option><option value="normal">标准</option><option value="hard">挑战</option></select></label><label id="fighter-setting" hidden>角色 <select id="fighter-character" aria-label="玩家一角色"><option value="belly">大肚奶蛙 · 耐打</option><option value="speed">暴躁奶蛙 · 迅捷</option><option value="laugh">狂笑奶蛙 · 远程</option></select></label><label id="opponent-setting" hidden>玩家二 <select id="opponent-character" aria-label="玩家二角色"><option value="belly">大肚奶蛙 · 耐打</option><option value="speed">暴躁奶蛙 · 迅捷</option><option value="laugh">狂笑奶蛙 · 远程</option></select></label><button id="leaderboard-button" type="button">♜ 全球排行榜</button><span class="settings-note" id="mode-note">每种难度独立记录最高分</span></div>
       <section class="aim-settings" id="aim-settings" hidden aria-label="瞄准训练设置">
         <div class="aim-setting-title"><strong>AIM TRAINING · 奶蛙瞄准实验室</strong><span>先求准，再求快。</span></div>
@@ -99,6 +103,6 @@
   <template id="level-panel-template"><section class="level-panel"><div class="panel-heading"><h3>奶蛙拆迁路线图</h3><span>12 关</span></div><p id="level-progress"></p><div id="level-grid" class="level-grid" aria-label="选择弹弓关卡"></div><p class="selected-level" id="selected-level"></p></section></template>
   <template id="forms-panel-template"><section class="forms-panel"><div class="panel-heading"><h3>奶蛙进化图鉴</h3><span>2 → 2048</span></div><div id="forms-list" class="forms-list"></div><p>同数字、同形态的奶蛙才能合并。</p></section></template>
   <noscript><div class="noscript">请启用 JavaScript 来和奶蛙一起玩。</div></noscript>
-  <script type="module" src="./js/app.js?v=5593d280b2fe"></script>
+  <script type="module" src="./js/app.js?v=13a5c1ec0c6e"></script>
 </body>
 </html>

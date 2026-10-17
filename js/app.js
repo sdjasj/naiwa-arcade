@@ -1,21 +1,22 @@
-import { createGame as createFlappy } from './games/flappy.js?v=5593d280b2fe';
-import { createGame as createAngry, LEVELS } from './games/angry.js?v=5593d280b2fe';
-import { createGame as createWhack } from './games/whack.js?v=5593d280b2fe';
-import { createGame as createCatch } from './games/catch.js?v=5593d280b2fe';
-import { createGame as createJump } from './games/jump.js?v=5593d280b2fe';
-import { createGame as createMerge, FORMS, validSave } from './games/merge.js?v=5593d280b2fe';
-import { createGame as createFighter } from './games/fighter.js?v=5593d280b2fe';
-import { createGame as createSurvivor } from './games/survivor.js?v=5593d280b2fe';
-import { createGame as createBomber } from './games/bomber.js?v=5593d280b2fe';
-import { createGame as createAim } from './games/aim.js?v=5593d280b2fe';
-import { createGame as createGuandan } from './games/guandan.js?v=5593d280b2fe';
-import { createGuandanUI } from './guandan-ui.js?v=5593d280b2fe';
-import { createTouchControls } from './controls.js?v=5593d280b2fe';
-import { drawFrog, setFrogTime, frogReady, frogAnimationStatus, drawHero, drawCard } from './frog.js?v=5593d280b2fe';
-import { GameAudio } from './audio.js?v=5593d280b2fe';
-import { createLeaderboardClient } from './leaderboard-client.js?v=5593d280b2fe';
-import { createLeaderboardUI } from './leaderboard-ui.js?v=5593d280b2fe';
-import { parseBoard } from './leaderboard-rules.js?v=5593d280b2fe';
+import { createGame as createFlappy } from './games/flappy.js?v=13a5c1ec0c6e';
+import { createGame as createAngry, LEVELS } from './games/angry.js?v=13a5c1ec0c6e';
+import { createGame as createWhack } from './games/whack.js?v=13a5c1ec0c6e';
+import { createGame as createCatch } from './games/catch.js?v=13a5c1ec0c6e';
+import { createGame as createJump } from './games/jump.js?v=13a5c1ec0c6e';
+import { createGame as createMerge, FORMS, validSave } from './games/merge.js?v=13a5c1ec0c6e';
+import { createGame as createFighter } from './games/fighter.js?v=13a5c1ec0c6e';
+import { createGame as createSurvivor } from './games/survivor.js?v=13a5c1ec0c6e';
+import { createGame as createBomber } from './games/bomber.js?v=13a5c1ec0c6e';
+import { createGame as createAim } from './games/aim.js?v=13a5c1ec0c6e';
+import { createGame as createGuandan } from './games/guandan.js?v=13a5c1ec0c6e';
+import { createGuandanUI } from './guandan-ui.js?v=13a5c1ec0c6e';
+import { createCastUI } from './cast-ui.js?v=13a5c1ec0c6e';
+import { createTouchControls } from './controls.js?v=13a5c1ec0c6e';
+import { drawFrog, setFrogTime, frogReady, frogAnimationStatus, getFrogSkinName, drawHero, drawCard } from './frog.js?v=13a5c1ec0c6e';
+import { GameAudio } from './audio.js?v=13a5c1ec0c6e';
+import { createLeaderboardClient } from './leaderboard-client.js?v=13a5c1ec0c6e';
+import { createLeaderboardUI } from './leaderboard-ui.js?v=13a5c1ec0c6e';
+import { parseBoard } from './leaderboard-rules.js?v=13a5c1ec0c6e';
 
 const $ = id => document.getElementById(id);
 const definitions = {
@@ -87,6 +88,7 @@ function loadProgress() {
 let progress = loadProgress(), selectedLevel = progress.unlocked;
 let soundEnabled = read('naiwa:sound', 'on') !== 'off';
 const audio = new GameAudio(soundEnabled);
+let castUI = null;
 const canvas = $('game-canvas'), ctx = canvas.getContext('2d');
 let activeId = 'flappy', game = null, state = 'ready', score = 0, gameTime = 0, lastResult = null;
 let lastFrame = 0, accumulator = 0, activePointer = null;
@@ -159,6 +161,7 @@ function setSoundUI() {
   $('sound-toggle').setAttribute('aria-label', soundEnabled ? '关闭音效' : '开启音效');
   $('sound-text').textContent = soundEnabled ? '音效开' : '音效关';
   $('sound-icon').textContent = soundEnabled ? '♫' : '♪';
+  castUI?.updateSound();
 }
 function refreshBest() {
   if (isTraining(activeId)) { $('best-score').textContent = '—'; document.querySelector('.best-score div>span').textContent = '练习室 · 不计成绩'; return; }
@@ -363,7 +366,7 @@ function selectGame(id, scroll = false, levelOverride) {
   const saveKey = mergeSaveKey();
   loadedMergeSave = id === 'merge' ? readJSON(saveKey, null) : null;
   game = data.factory({
-    canvas, ctx, ...size, drawFrog, audio, difficulty: difficulty[id] || 'normal', progress, endless: isEndless(id), multiplayer: isDuel(id), training: isTraining(id), character: fighterCharacter, opponentCharacter: isDuel(id) || isTraining(id) ? opponentCharacter : undefined, gridSize,
+    canvas, ctx, ...size, drawFrog, getSkinName: getFrogSkinName, audio, difficulty: difficulty[id] || 'normal', progress, endless: isEndless(id), multiplayer: isDuel(id), training: isTraining(id), character: fighterCharacter, opponentCharacter: isDuel(id) || isTraining(id) ? opponentCharacter : undefined, gridSize,
     savedGame: loadedMergeSave, aimDrill, aimInput, sensitivity: aimSensitivity,
     onScore: setScore,
     onStatus: text => { $('game-status').textContent = text; if (activeId === 'angry' && game) renderLevels(); },
@@ -485,11 +488,18 @@ $('help-button').addEventListener('click', () => { pause(); $('help-dialog').sho
 for (const id of ['close-help', 'help-done']) $(id).addEventListener('click', () => $('help-dialog').close());
 $('help-dialog').addEventListener('click', event => { if (event.target === $('help-dialog')) { const r = event.target.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) event.target.close(); } });
 
+function redrawCastArtwork() {
+  setFrogTime(.3);
+  drawHero($('hero-canvas').getContext('2d'), .3);
+  document.querySelectorAll('[data-art]').forEach(c => drawCard(c.getContext('2d'), c.dataset.art));
+}
+castUI = createCastUI({ audio, read, write, isSoundEnabled: () => soundEnabled,
+  getHostState: () => state, pause, onSkinChanged: redrawCastArtwork });
 setSoundUI(); selectGame('flappy');
 const heroCtx = $('hero-canvas').getContext('2d');
 let heroVisible = true;
 new IntersectionObserver(entries => { heroVisible = entries[0].isIntersecting; }).observe($('hero-canvas'));
-frogReady.then(() => { setFrogTime(.3); document.querySelectorAll('[data-art]').forEach(c => drawCard(c.getContext('2d'), c.dataset.art)); });
+frogReady.then(redrawCastArtwork);
 function frame(now) {
   const dt = Math.min(Math.max((now - lastFrame) / 1000, 0), .1); lastFrame = now;
   if (state === 'playing') {
@@ -505,5 +515,5 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 if (new URLSearchParams(location.search).has('debug')) {
-  Object.defineProperty(window, '__arcade', { value: { getState: (options = {}) => ({ id: activeId, state, score, soundEnabled, animations: frogAnimationStatus(), difficulty: difficulty[activeId], playMode: playModes[activeId], fighterCharacter, opponentCharacter, gridSize, selectedLevel, progress, aimDrill, aimInput, aimSensitivity, aimLocked: document.pointerLockElement === canvas, game: game.getState(options) }) } });
+  Object.defineProperty(window, '__arcade', { value: { getState: (options = {}) => ({ id: activeId, state, score, soundEnabled, ...castUI.getState(), animations: frogAnimationStatus(), difficulty: difficulty[activeId], playMode: playModes[activeId], fighterCharacter, opponentCharacter, gridSize, selectedLevel, progress, aimDrill, aimInput, aimSensitivity, aimLocked: document.pointerLockElement === canvas, game: game.getState(options) }) } });
 }
