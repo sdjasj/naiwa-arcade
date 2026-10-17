@@ -49,7 +49,7 @@ async function openAim(page, { drill = 'grid', input = 'cursor', mode = 'classic
   await page.locator('#play-mode-select').selectOption(mode);
   await page.locator('#difficulty-select').selectOption(difficulty);
   await expect(page.locator('#aim-settings')).toBeVisible();
-  await expect(page.locator('#game-number')).toHaveText('10 / 10');
+  await expect(page.locator('#game-number')).toHaveText('10 / 11');
 }
 
 async function startAim(page, touch = false) {

@@ -108,7 +108,7 @@ test('anonymous results stay local until consent; failed uploads retry the same 
   expect(service.accepted[0].runId).not.toBe(service.accepted[1].runId);
 });
 
-test('all ten games have separate boards; only real top 50 rows render and public names remain plain text', async ({ page }) => {
+test('all eleven games have separate boards; only real top 50 rows render and public names remain plain text', async ({ page }) => {
   const service = await mockService(page);
   const hostileName = '<img src=x onerror=alert(1)>';
   const entries = Array.from({ length: 55 }, (_, index) => ({ rank: index + 1, playerId: `fixture-${index}`,
@@ -116,7 +116,7 @@ test('all ten games have separate boards; only real top 50 rows render and publi
   service.boards.set('v1:flappy:classic:normal', { entries, totalPlayers: 91, myBest: { rank: 73, score: 490 } });
   await page.goto('./?debug', { waitUntil: 'networkidle' });
   await page.locator('#leaderboard-button').click();
-  await expect(page.locator('#leaderboard-game option')).toHaveCount(10);
+  await expect(page.locator('#leaderboard-game option')).toHaveCount(11);
   await expect(page.locator('#leaderboard-list .leaderboard-entry')).toHaveCount(50);
   await expect(page.locator('#leaderboard-list .leaderboard-nickname').first()).toHaveText(hostileName);
   await expect(page.locator('#leaderboard-list img')).toHaveCount(0);
@@ -138,12 +138,12 @@ test('all ten games have separate boards; only real top 50 rows render and publi
   await page.locator('#leaderboard-board').selectOption('v1:fighter:endless:laugh');
   await expect(page.locator('#leaderboard-board-title')).toContainText('无限 · 狂笑奶蛙');
   let totalBoards = 0;
-  for (const [game, count] of Object.entries({ flappy: 6, angry: 13, whack: 6, catch: 2, jump: 2, merge: 2, fighter: 6, survivor: 2, bomber: 2, aim: 36 })) {
+  for (const [game, count] of Object.entries({ flappy: 6, angry: 13, whack: 6, catch: 2, jump: 2, merge: 2, fighter: 6, survivor: 2, bomber: 2, aim: 36, guandan: 2 })) {
     await page.locator('#leaderboard-game').selectOption(game);
     await expect(page.locator('#leaderboard-board option')).toHaveCount(count);
     totalBoards += await page.locator('#leaderboard-board option').count();
   }
-  expect(totalBoards).toBe(77);
+  expect(totalBoards).toBe(79);
   await page.locator('#leaderboard-close').click();
   for (const mode of ['training', 'duel']) {
     await page.locator('#game-select').selectOption('fighter');

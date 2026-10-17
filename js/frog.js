@@ -130,8 +130,23 @@ export function drawHero(ctx, time) {
 export function drawCard(ctx, game) {
   const w = 640, h = 330;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = { flappy: '#dfeeda', angry: '#f7e9cf', whack: '#e9e6f3', catch: '#dceef1', jump: '#f1e0e8', merge: '#f2ebca', fighter: '#f1ded1', survivor: '#dbe6d9', bomber: '#e7dff0', aim: '#172d32' }[game]; ctx.fillRect(0, 0, w, h);
-  if (game === 'aim') {
+  ctx.fillStyle = { flappy: '#dfeeda', angry: '#f7e9cf', whack: '#e9e6f3', catch: '#dceef1', jump: '#f1e0e8', merge: '#f2ebca', fighter: '#f1ded1', survivor: '#dbe6d9', bomber: '#e7dff0', aim: '#172d32', guandan: '#244c42' }[game]; ctx.fillRect(0, 0, w, h);
+  if (game === 'guandan') {
+    ctx.save();
+    ctx.fillStyle = '#386655'; ctx.strokeStyle = '#b6bd8066'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(320, 224, 275, 109, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    drawFrog(ctx, 158, 155, 99, { animation: 'laugh', animationTime: .5, expression: 'laugh' });
+    drawFrog(ctx, 490, 154, 98, { animation: 'laugh', animationTime: .2, expression: 'laugh', scaleX: -1 });
+    for (const [i, face] of ['A', 'A', '♥2', 'K', 'K'].entries()) {
+      ctx.save(); ctx.translate(234 + i*43, 238); ctx.rotate((i-2)*.1);
+      ctx.fillStyle = i === 2 ? '#fff0c7' : '#fffdf0'; ctx.strokeStyle = '#c8cfb2'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(-28,-48,56,82,6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = i === 2 ? '#b65442' : '#354f40'; ctx.font = 'bold 25px Georgia'; ctx.textAlign = 'center'; ctx.fillText(face,0,-13);
+      ctx.font = '21px Georgia'; ctx.fillText(i === 2 ? '配' : i%2 ? '♣' : '♠',0,17); ctx.restore();
+    }
+    ctx.fillStyle = '#e2d99e'; ctx.textAlign = 'center'; ctx.font = '600 16px sans-serif'; ctx.fillText('一桌四蛙 · 笑到头游', 320, 75);
+    ctx.restore();
+  } else if (game === 'aim') {
     ctx.save();
     ctx.strokeStyle = '#34524f'; ctx.lineWidth = 1;
     for (let x = 0; x < w; x += 64) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }

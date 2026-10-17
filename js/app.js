@@ -8,6 +8,8 @@ import { createGame as createFighter } from './games/fighter.js';
 import { createGame as createSurvivor } from './games/survivor.js';
 import { createGame as createBomber } from './games/bomber.js';
 import { createGame as createAim } from './games/aim.js';
+import { createGame as createGuandan } from './games/guandan.js';
+import { createGuandanUI } from './guandan-ui.js';
 import { createTouchControls } from './controls.js';
 import { drawFrog, setFrogTime, frogReady, frogAnimationStatus, drawHero, drawCard } from './frog.js';
 import { GameAudio } from './audio.js';
@@ -27,9 +29,11 @@ const definitions = {
   survivor: { factory: createSurvivor, name: '奶蛙幸存者', title: '笑到最后的，才是奶蛙。', message: '移动躲开围攻，自动攻击。拾取经验，选择升级，挑战首领！', start: '开始生存', instruction: '越被包围，笑得越大声。', summary: '攻击会自动瞄准敌人，你负责走位和拾取经验。升级时从 3 个强化中选择一个，搭配笑声、震波和旋转奶瓶。坚持 3 分钟并击败首领即可通关。', keyboard: 'WASD / 方向键 · 空格', keyboardDetail: '移动 · 冲刺；数字 1–3 选择升级', touch: '方向键 + 冲刺', touchDetail: '升级时点击画面中的强化卡片', quote: '“这么多人，都是来听我笑的吗？”', status: '自动攻击 · 升级三选一 · 3 分钟首领挑战' },
   bomber: { factory: createBomber, name: '奶蛙炸弹人', title: '放个笑气弹，记得跑。', message: '炸开箱子收集道具，躲开十字爆炸，清场后找到出口。', start: '开始拆箱', instruction: '笑声会传染，炸弹会连锁。', summary: '共 6 关迷宫，炸开木箱获得火力、容量和速度道具。清除对手再进入出口；放弹后及时绕到墙后，十字爆炸也会伤到自己。支持无限迷宫与同键盘双人对战。', keyboard: 'WASD / 方向键 · 空格', keyboardDetail: '移动 · 放置笑气弹', touch: '方向键 + 放炸弹', touchDetail: '可以边走边放弹，留好撤退路线', quote: '“我只是想让整个房间都笑起来。”', status: '6 关迷宫 · 连锁爆炸 · 道具强化 · 支持双人' },
   aim: { factory: createAim, name: '奶蛙瞄准实验室', modes: true, title: '准星稳住，奶蛙忍住笑。', message: '三秒准备后开始。点击小球，或按住射击跟随移动目标。', start: '开始练枪', instruction: '先求准，再求快。', summary: '三球速点练目标切换，精准甩枪练小目标，跟枪追踪练持续控枪。60 秒挑战或无限练习，三档难度。结束后查看命中率、平均耗时和训练得分。', keyboard: '鼠标左键 · Esc / P', keyboardDetail: '射击 · 暂停释放鼠标；Enter 结束训练', touch: '点击球 / 按住跟随', touchDetail: '手机选择点击模式；跟枪需要按住目标移动', quote: '“你瞄的是小球，奶蛙笑的是空枪。”', status: '三种训练 · 60 秒 / 无限 · 命中率与反应统计' },
+  guandan: { factory: createGuandan, name: '奶蛙掼蛋', title: '对家是队友，笑声是对手。', message: '单人即可开桌：你和上方 AI 奶蛙组队，对战左右两名 AI。点选手牌后出牌。', start: '入座开打', instruction: '好牌一起打，笑声一起扛。', summary: '你 + 三名 AI，双副 108 张、每人 27 张，对家合作。红桃级牌可百搭，支持顺子、连对、钢板、炸弹和同花顺。提示帮你选牌，托管可随时接回；对手赢了真的会捧腹大笑。', keyboard: 'Enter / H / 空格 / T', keyboardDetail: '出牌 / 提示 / 不要 / 托管；Tab 可聚焦牌面', touch: '点选手牌 → 出牌', touchDetail: '再次点牌可取消；提示会选中合法牌组', quote: '“牌可以输，但笑声不能小。”', status: '四人组队 · 你 + 三名 AI · 两副牌 · 捧腹大笑' },
 };
 const ids = Object.keys(definitions);
 const endlessDescriptions = {
+  guandan: { message: '从 2 开始连续升级，每副结束可继续。打过 A 后开启下一轮，也可随时结束牌局结算。', summary: '队伍拿到头游，按对家名次升 3 / 2 / 1 级。下一副自动完成进贡、还贡与抗贡并展示记录；打 A 时头游与对家非末游即可过 A。过 A 后重回 2 继续，积分累计。', status: '无限升级 · 进贡还贡 · 打过 A 继续 · 可随时结算' },
   aim: { message: '无限练习，不设倒计时上限。按 Enter 或结束训练查看报告。', summary: '保持稳定节奏练速点、甩枪或跟枪。无限练习独立记分；按 Enter 或结束训练结算。Esc / P 可暂停，休息时间不计入训练耗时。', status: '无限练习 · 随时暂停 · Enter 结束结算' },
   flappy: { message: '3 颗心，穿过源源不断的水管。碰撞后短暂无敌，继续扑腾！', summary: '无限航线，3 颗心。撞到障碍扣 1 颗心，安全复位后短暂无敌；坚持越久，风景越多。生命耗尽结算得分。', status: '无限航线 · 3 颗心 · 碰撞后短暂无敌' },
   angry: { message: '工地一关接一关，每关补充弹药，挑战你的拆迁纪录！', summary: '工地持续出现，每关补充弹药，分数累计。难度逐步提升，弹药用完仍有目标时结算。无限模式单独记分。', status: '无限工地 · 每关补充弹药 · 累计得分' },
@@ -101,6 +105,7 @@ const touchControls = createTouchControls($('action-controls'), {
   up: action => game?.controlUp?.(action),
   focus: () => canvas.focus({ preventScroll: true }),
 });
+const guandanUI = createGuandanUI({ getGame: () => game, getHostState: () => state, unlockAudio: () => audio.unlock() });
 let upgradeSignature = '';
 let trainingReadout = '';
 function renderTraining() {
@@ -211,6 +216,7 @@ function showOverlay(kind, result) {
   $('start-button').replaceChildren(document.createTextNode(`${text} `), Object.assign(document.createElement('span'), { textContent: '→' }));
   $('overlay-hint').textContent = kind === 'ended' ? '没关系，奶蛙的快乐没有次数限制' : '准备好迎接奶蛙的魔性笑声';
   if (activeId === 'aim' && kind !== 'ended') $('overlay-hint').textContent = aimInput === 'fps' ? '点击开始后锁定鼠标 · Esc 释放 · Enter 结束' : '三秒准备后计时 · 跟枪时请按住目标移动';
+  if (activeId === 'guandan') $('overlay-hint').textContent = kind === 'ended' ? '对家还在，下局一起赢回来。' : '红桃级牌是百搭 · 队友在上方 · 想歇会儿可托管';
   if (kind === 'ended') { $('result-value').textContent = String(result.score); $('start-button').focus({ preventScroll: true }); }
   refreshPuzzleControls();
 }
@@ -323,6 +329,7 @@ function selectGame(id, scroll = false, levelOverride) {
   size = id === 'merge' ? { width: 560, height: 640 } : { width: 960, height: 560 };
   resize(); $('player-window').classList.toggle('puzzle-mode', id === 'merge');
   $('player-window').classList.toggle('aim-mode', id === 'aim');
+  $('player-window').classList.toggle('guandan-mode', id === 'guandan');
   $('aim-settings').hidden = id !== 'aim'; $('aim-finish').hidden = id !== 'aim'; $('aim-finish').disabled = true;
   updateAimSettings();
   $('current-name').textContent = data.name; $('game-number').textContent = `${String(ids.indexOf(id) + 1).padStart(2, '0')} / ${String(ids.length).padStart(2, '0')}`;
@@ -337,6 +344,7 @@ function selectGame(id, scroll = false, levelOverride) {
   $('play-mode-select').replaceChildren(...allowedModes(id).map(value => Object.assign(document.createElement('option'), { value, textContent: { classic: '经典模式', endless: '∞ 无限模式', duel: '双人（同键盘）', training: '练习室 · 自由出招' }[value] })));
   $('play-mode-select').value = playModes[id] || 'classic';
   if (id === 'aim') { $('play-mode-select').options[0].textContent = '60 秒挑战'; $('play-mode-select').options[1].textContent = '∞ 无限练习'; }
+  if (id === 'guandan') { $('play-mode-select').options[0].textContent = '单局对战'; $('play-mode-select').options[1].textContent = '∞ 连续升级'; }
   $('fighter-setting').hidden = id !== 'fighter'; $('opponent-setting').hidden = id !== 'fighter' || (!isDuel(id) && !isTraining(id));
   $('opponent-setting').firstChild.nodeValue = isTraining(id) ? '木桩角色 ' : '玩家二 ';
   $('player-window').classList.toggle('fighter-mode', id === 'fighter');
@@ -347,6 +355,7 @@ function selectGame(id, scroll = false, levelOverride) {
   $('board-setting').hidden = id !== 'merge'; $('board-size-select').value = String(gridSize);
   $('mode-note').textContent = id === 'merge' ? '两种棋盘分别存档、分别记录最高分' : isDuel(id) ? '两人共用一把键盘，三局两胜' : isEndless(id) ? '无限续关，挑战生存纪录 · 独立记分' : data.modes ? '每种难度独立记录最高分' : id === 'angry' ? '通关保存星级，解锁下一关' : '放轻松，奶蛙替你努力';
   if (id === 'aim') $('mode-note').textContent = '训练项目、难度、操控分别记分';
+  if (id === 'guandan') $('mode-note').textContent = '单人游玩 · 三名 AI 陪玩 · 两种玩法分榜';
   if (isTraining(id)) $('mode-note').textContent = '无限生命与能量 · 自由练习 · 不计成绩';
   $('puzzle-controls').hidden = id !== 'merge'; levelPanel.hidden = id !== 'angry' || isEndless(id); formsPanel.hidden = id !== 'merge';
   canvas.setAttribute('aria-label', `${data.name}游戏区域。${data.message}`);
@@ -426,6 +435,7 @@ document.addEventListener('keydown', event => {
     return;
   }
   if (activeId === 'aim' && event.code === 'Enter' && !event.repeat && ['playing', 'paused'].includes(state) && !['INPUT', 'SELECT', 'BUTTON'].includes(event.target.tagName)) { event.preventDefault(); game.finish?.(); return; }
+  if (activeId === 'guandan' && guandanUI.keyDown(event)) { event.preventDefault(); return; }
   if (state === 'playing' && event.target === canvas && game.keyDown?.(event)) event.preventDefault();
 });
 document.addEventListener('keyup', event => { if (state === 'playing' && !$('help-dialog').open && game.keyUp?.(event)) event.preventDefault(); });
@@ -488,6 +498,7 @@ function frame(now) {
   } else if (state === 'ready' && !reducedMotion) gameTime += dt;
   setFrogTime(gameTime); game.render(gameTime);
   renderTraining();
+  guandanUI.update(activeId === 'guandan');
   refreshActionControls();
   if (!document.hidden && heroVisible) { setFrogTime(reducedMotion ? .3 : now / 1000); drawHero(heroCtx, reducedMotion ? .3 : now / 1000); }
   requestAnimationFrame(frame);

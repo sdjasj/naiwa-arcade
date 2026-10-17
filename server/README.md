@@ -1,6 +1,6 @@
 # 奶蛙全球排行榜服务
 
-本目录保存奶蛙摸鱼乐园的完整 Sites 服务源码，使用 Vinext 路由与 Cloudflare D1，服务十款游戏的 77 个分榜。游戏网页部署在 GitHub Pages；排行榜运行在独立 Sites 项目，发布网页或推送这个仓库不会同步发布服务。API 地址由前端 `js/leaderboard-config.js` 配置。
+本目录保存奶蛙摸鱼乐园的完整 Sites 服务源码，使用 Vinext 路由与 Cloudflare D1，服务十一款游戏的 79 个分榜。游戏网页部署在 GitHub Pages；排行榜运行在独立 Sites 项目，发布网页或推送这个仓库不会同步发布服务。API 地址由前端 `js/leaderboard-config.js` 配置。
 
 当前 API：
 

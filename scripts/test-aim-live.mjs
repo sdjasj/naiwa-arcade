@@ -1,14 +1,16 @@
 /**
- * Real Firefox / HTTP acceptance check for the deployed aim game.
+ * Real Firefox / HTTP acceptance check for deployed aim or Guandan games.
  *
  * NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ \
  *   node scripts/test-aim-live.mjs
- * Optional: NAIWA_LEADERBOARD_SERVICE, PLAYWRIGHT_FIREFOX_EXECUTABLE.
+ * Optional: NAIWA_QA_GAME=guandan (default aim), NAIWA_LEADERBOARD_SERVICE,
+ * PLAYWRIGHT_FIREFOX_EXECUTABLE.
  * Firefox and HTTP checks use https_proxy / HTTPS_PROXY / http_proxy / HTTP_PROXY.
  *
- * This creates two temporary identities through the real UI, plays one target
- * per identity with real mouse input, and deletes all captured identities in
- * finally. No routes, fake responses, clock changes or score setters are used.
+ * This creates two temporary identities through the real UI, hits one aim
+ * target or plays one Guandan card per identity, and deletes all captured
+ * identities in finally. No routes, fake responses, clock changes, injected
+ * hands or score setters are used.
  * --help is read-only and performs no browser launch or network requests.
  */
 import assert from 'node:assert/strict';
@@ -17,9 +19,11 @@ import { firefox, expect, request as playwrightRequest } from '@playwright/test'
 import { LEADERBOARD_API } from '../js/leaderboard-config.js';
 
 if (process.argv.includes('--help')) {
-  console.log('Usage: NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ node scripts/test-aim-live.mjs\nRuns a real two-player aim check and deletes its temporary identities. Uses Firefox and the environment HTTPS proxy.');
+  console.log('Usage: NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ node scripts/test-aim-live.mjs\nOptional: NAIWA_QA_GAME=aim|guandan (default aim).\naim hits one grid/cursor target per browser; guandan plays one card for 5 points in endless mode and finishes through the UI.\nUses two isolated Firefox contexts, real HTTP and the environment HTTPS proxy; deletes temporary identities and verifies cleanup.');
   process.exit(0);
 }
+const qaGame = process.env.NAIWA_QA_GAME || 'aim';
+if (!['aim', 'guandan'].includes(qaGame)) throw new Error('NAIWA_QA_GAME must be aim or guandan.');
 if (!process.env.NAIWA_TEST_URL) throw new Error('Set NAIWA_TEST_URL explicitly before running this live write/cleanup check. Use --help for usage.');
 const frontend = new URL(process.env.NAIWA_TEST_URL);
 const service = new URL(process.env.NAIWA_LEADERBOARD_SERVICE || LEADERBOARD_API);
@@ -68,6 +72,13 @@ async function checkService() {
   assert.equal(response.headers()['access-control-allow-origin'], frontend.origin);
   assert.match(response.headers()['access-control-allow-methods'] || '', /PATCH/);
   assert.match(response.headers()['access-control-allow-headers'] || '', /authorization/i);
+  if (qaGame === 'guandan') {
+    const board = 'v1:guandan:endless';
+    const data = await jsonApi(`/api/boards?${new URLSearchParams({ board, limit: '50' })}`);
+    assert.equal(data.board, board, 'The deployed service must recognize the Guandan endless board');
+    assert.ok(data.totalPlayers < 49, 'The Guandan endless board already has 49 players; stop before creating identities because both QA rows may not fit Top 50.');
+    return { board, totalPlayers: data.totalPlayers };
+  }
   const boards = [];
   for (const difficulty of ['normal', 'easy', 'hard']) {
     const board = `v1:aim:classic:${difficulty}:grid:cursor`;
@@ -116,6 +127,12 @@ async function selectAim(page, difficulty) {
   await page.locator('#play-mode-select').selectOption('classic');
   await page.locator('#difficulty-select').selectOption(difficulty);
 }
+async function selectCheckedGame(page, difficulty) {
+  if (qaGame === 'aim') return selectAim(page, difficulty);
+  await page.bringToFront();
+  await page.locator('#game-select').selectOption('guandan');
+  await page.locator('#play-mode-select').selectOption('endless');
+}
 async function playOneTarget(page, difficulty) {
   await selectAim(page, difficulty);
   await page.locator('#start-button').click();
@@ -145,6 +162,35 @@ async function playOneTarget(page, difficulty) {
   await expect(page.locator('#leaderboard-result-message')).toContainText('昵称', { timeout });
   remember(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), identityKey));
   assert.equal(pageRuns.get(page).length, 1, 'One real session must register exactly one server run');
+  assert.equal(pageRuns.get(page)[0].board, selectedBoard);
+  return played.score;
+}
+async function playCheckedGame(page, difficulty) {
+  if (qaGame === 'aim') return playOneTarget(page, difficulty);
+  await selectCheckedGame(page);
+  await page.locator('#start-button').click();
+  await page.waitForFunction(() => {
+    const state = window.__arcade.getState();
+    return state.id === 'guandan' && state.state === 'playing' && state.game.phase === 'playing' && state.game.ownCanAct;
+  }, null, { timeout });
+  const before = await page.evaluate(() => window.__arcade.getState());
+  assert.equal(before.score, 0); assert.equal(before.game.hand.length, 27);
+  const cards = page.locator('#guandan-hand [data-card-id]');
+  await expect(cards).toHaveCount(27);
+  const chosenId = await cards.first().getAttribute('data-card-id');
+  await cards.first().click();
+  await expect(page.locator('#guandan-play')).toBeEnabled({ timeout });
+  await page.locator('#guandan-play').click();
+  const played = await page.evaluate(() => window.__arcade.getState());
+  assert.equal(played.score, 5, 'Exactly one legitimately played card must award five points');
+  assert.equal(played.game.hand.length, 26, 'The real hand must lose exactly one card');
+  assert.ok(!played.game.hand.some(card => card.id === chosenId), 'The selected card must leave the hand through game logic');
+  await page.locator('#guandan-finish').click();
+  await page.waitForFunction(() => window.__arcade.getState().state === 'ended', null, { timeout });
+  await expect(page.locator('#result-value')).toHaveText('5', { timeout });
+  await expect(page.locator('#leaderboard-result-message')).toContainText('昵称', { timeout });
+  remember(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), identityKey));
+  assert.equal(pageRuns.get(page).length, 1, 'One real Guandan session must register exactly one server run');
   assert.equal(pageRuns.get(page)[0].board, selectedBoard);
   return played.score;
 }
@@ -233,29 +279,29 @@ async function main() {
     ...(process.env.PLAYWRIGHT_FIREFOX_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_FIREFOX_EXECUTABLE } : {}),
     firefoxUserPrefs: { 'network.http.http2.enabled': false, 'network.http.http3.enable': false } });
   const results = [], first = await createPage();
-  const firstScore = await playOneTarget(first, choice.difficulty);
+  const firstScore = await playCheckedGame(first, choice.difficulty);
   const firstName = `${qaPrefix}A`, firstId = await publish(first, firstName);
   results.push({ name: firstName, id: firstId, score: firstScore });
   const second = await createPage();
-  await selectAim(second, choice.difficulty);
+  await selectCheckedGame(second, choice.difficulty);
   await second.locator('#leaderboard-button').click();
   await boardLoaded(second);
   await expect(second.locator('#leaderboard-list .leaderboard-nickname')).toContainText([firstName], { timeout });
   assert.equal(await second.evaluate(key => localStorage.getItem(key), identityKey), null, 'Peer score must be visible without sharing local identity');
   await second.locator('#leaderboard-close').click();
-  const secondScore = await playOneTarget(second, choice.difficulty);
+  const secondScore = await playCheckedGame(second, choice.difficulty);
   const secondName = `${qaPrefix}B`, secondId = await publish(second, secondName);
   assert.notEqual(firstId, secondId, 'Isolated contexts must have different identities');
   results.push({ name: secondName, id: secondId, score: secondScore });
   const ranks = [];
   for (const [index, page] of [first, second].entries()) {
     await page.bringToFront(); await page.reload({ waitUntil: 'networkidle', timeout });
-    await selectAim(page, choice.difficulty);
+    await selectCheckedGame(page, choice.difficulty);
     await page.locator('#leaderboard-button').click();
     ranks.push(await verifyShared(page, results, results[index]));
   }
   assert.equal(errors.length, 0, `Browser errors: ${errors.map(safeMessage).join('; ')}`);
-  return `PASS real Firefox aim: ${selectedBoard}; real hits 1/1; scores ${results.map(result => result.score).join('/')}; ranks ${ranks.join('/')}; isolated identities, peer visibility and reload verified.`;
+  return `PASS real Firefox ${qaGame}: ${selectedBoard}; ${qaGame === 'aim' ? 'real hits 1/1' : 'real single-card plays 1/1'}; scores ${results.map(result => result.score).join('/')}; ranks ${ranks.join('/')}; isolated identities, peer visibility and reload verified.`;
 }
 let failure, report;
 try { report = await main(); } catch (error) { failure = error; }

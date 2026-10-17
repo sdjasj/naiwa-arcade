@@ -345,3 +345,52 @@ scenario('aim validation uses service elapsed time, allows zero and long endless
   const zeroRun = await f.run(player, makeBoard({ game: 'aim', aimDrill: 'track' }));
   assert.equal((await f.score(player, zeroRun, 0)).body.best.score, 0);
 });
+
+scenario('guandan classic and endless runs retain separate bests and ordinary immutable results', async f => {
+  const player = await f.player('掼蛋分榜测试');
+  const classic = makeBoard({ game: 'guandan' });
+  const endless = makeBoard({ game: 'guandan', mode: 'endless' });
+  const classicRun = await f.run(player, classic), endlessRun = await f.run(player, endless);
+  const changed = await f.request('/api/runs', { method: 'POST', token: player.token,
+    body: { runId: classicRun.runId, board: endless } });
+  assert.equal(changed.status, 409, 'a hand cannot switch its registered mode');
+  f.tick(60_000);
+  const oneHand = await f.score(player, classicRun, 835);
+  const multipleHands = await f.score(player, endlessRun, 1670);
+  assert.equal(oneHand.status, 200);
+  assert.equal(multipleHands.status, 200);
+  assert.equal(oneHand.body.board, classic);
+  assert.equal(multipleHands.body.board, endless);
+  assert.equal((await f.board(classic, player)).body.myBest.score, 835);
+  assert.equal((await f.board(endless, player)).body.myBest.score, 1670);
+  const duplicate = await f.score(player, endlessRun, 1670);
+  assert.equal(duplicate.body.duplicate, true);
+  assert.equal(duplicate.body.improved, false);
+  assert.equal((await f.score(player, endlessRun, 1675)).status, 409, 'endless settles once, not as merge checkpoints');
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS total FROM best_scores WHERE player_id = ?').get(player.id).total, 2);
+  assert.equal((await f.board(CLASSIC, player)).body.myBest, null);
+  for (const invalid of ['v1:guandan:classic:normal', 'v1:guandan:endless:hard', 'v1:guandan:training']) {
+    assert.equal((await f.board(invalid)).status, 400, invalid);
+    assert.equal((await f.request('/api/runs', { method: 'POST', token: player.token,
+      body: { runId: randomUUID(), board: invalid } })).status, 400, invalid);
+  }
+});
+
+scenario('guandan service permits zero, full hands and accumulated endless points within server-time bounds', async f => {
+  const player = await f.player();
+  const classic = makeBoard({ game: 'guandan' }), endless = makeBoard({ game: 'guandan', mode: 'endless' });
+  const capped = await f.run(player, classic), accumulated = await f.run(player, endless);
+  assert.equal((await f.score(player, capped, 1001)).body.error.code, 'score_limit');
+  assert.equal((await f.score(player, accumulated, 1001)).body.error.code, 'score_too_fast');
+  f.tick(1000);
+  assert.equal((await f.score(player, accumulated, 1201)).body.error.code, 'score_too_fast');
+  assert.equal((await f.score(player, capped, 835)).status, 200, 'normal maximum hand is below classic cap');
+  f.tick(86_400_000);
+  assert.equal((await f.score(player, accumulated, 835 * 1000)).status, 200, 'many hands may accumulate without a one-hand cap');
+  assert.equal((await f.board(endless, player)).body.myBest.score, 835_000);
+  const zero = await f.run(player, classic);
+  const result = await f.score(player, zero, 0);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.improved, false);
+  assert.equal(result.body.best.score, 835, 'a zero result cannot lower a previous best');
+});

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { GAMES, MAX_SCORE, makeBoard, parseBoard, boardLabel, getBoardChoices, validateScore } from '../js/leaderboard-rules.js';
 
-test('leaderboards enumerate all ten games and 77 distinct, reversible board keys', () => {
-  assert.equal(GAMES.length, 10);
-  const counts = [6, 13, 6, 2, 2, 2, 6, 2, 2, 36];
+test('leaderboards enumerate all eleven games and 79 distinct, reversible board keys', () => {
+  assert.equal(GAMES.length, 11);
+  const counts = [6, 13, 6, 2, 2, 2, 6, 2, 2, 36, 2];
   const keys = [];
   GAMES.forEach(({ id, name }, index) => {
     assert.ok(name.includes('奶蛙'));
@@ -20,10 +20,10 @@ test('leaderboards enumerate all ten games and 77 distinct, reversible board key
       keys.push(value);
     }
   });
-  assert.equal(new Set(keys).size, 77);
+  assert.equal(new Set(keys).size, 79);
 });
 
-test('the original 41 board keys remain available unchanged and front/back rules stay identical', () => {
+test('all previous 77 board keys remain available unchanged and front/back rules stay identical', () => {
   const legacy = `v1:flappy:classic:easy v1:flappy:classic:normal v1:flappy:classic:hard
     v1:flappy:endless:easy v1:flappy:endless:normal v1:flappy:endless:hard
     v1:angry:classic:1 v1:angry:classic:2 v1:angry:classic:3 v1:angry:classic:4
@@ -37,10 +37,44 @@ test('the original 41 board keys remain available unchanged and front/back rules
     v1:fighter:endless:belly v1:fighter:endless:speed v1:fighter:endless:laugh
     v1:survivor:classic v1:survivor:endless v1:bomber:classic v1:bomber:endless`.trim().split(/\s+/);
   assert.equal(legacy.length, 41);
-  assert.deepEqual(GAMES.filter(game => game.id !== 'aim').flatMap(game => getBoardChoices(game.id).map(choice => choice.value)).sort(), legacy.sort());
+  for (const mode of ['classic', 'endless']) for (const difficulty of ['easy', 'normal', 'hard']) {
+    for (const drill of ['grid', 'precision', 'track']) for (const input of ['fps', 'cursor']) {
+      legacy.push(`v1:aim:${mode}:${difficulty}:${drill}:${input}`);
+    }
+  }
+  assert.equal(legacy.length, 77);
+  assert.deepEqual(GAMES.filter(game => game.id !== 'guandan').flatMap(game => getBoardChoices(game.id).map(choice => choice.value)).sort(), legacy.sort());
   for (const key of legacy) assert.equal(makeBoard(parseBoard(key)), key);
   assert.equal(readFileSync(new URL('../js/leaderboard-rules.js', import.meta.url), 'utf8'),
     readFileSync(new URL('../server/lib/leaderboard-rules.js', import.meta.url), 'utf8'));
+});
+
+test('guandan uses only classic and endless boards with fixed AI and no difficulty aliases', () => {
+  assert.equal(makeBoard({ game: 'guandan' }), 'v1:guandan:classic');
+  assert.equal(makeBoard({ game: 'guandan', mode: 'endless', difficulty: 'hard', startLevel: 12, character: 'speed', aimDrill: 'track', aimInput: 'fps' }), 'v1:guandan:endless');
+  assert.deepEqual(parseBoard('v1:guandan:classic'), { game: 'guandan', mode: 'classic' });
+  assert.deepEqual(parseBoard('v1:guandan:endless'), { game: 'guandan', mode: 'endless' });
+  assert.deepEqual(getBoardChoices('guandan'), [
+    { value: 'v1:guandan:classic', label: '奶蛙掼蛋 · 经典单局' },
+    { value: 'v1:guandan:endless', label: '奶蛙掼蛋 · 无限升级' },
+  ]);
+  for (const key of ['v1:guandan', 'v1:guandan:classic:normal', 'v1:guandan:endless:2', 'v1:guandan:classic ',
+    'v1:guandan:endless\n', 'v1:guandan:duel', 'v1:guandan:training']) assert.equal(parseBoard(key), null, key);
+  assert.equal(makeBoard({ game: 'guandan', mode: 'duel' }), null);
+});
+
+test('guandan scoring accepts a full 835-point hand, caps classic and allows long endless accumulation', () => {
+  const classic = 'v1:guandan:classic', endless = 'v1:guandan:endless';
+  assert.equal(validateScore(classic, 27 * 5 + 500 + 200, 0).ok, true);
+  assert.equal(validateScore(classic, 0, 0).ok, true);
+  assert.equal(validateScore(classic, 1000, 1000).ok, true);
+  assert.equal(validateScore(classic, 1001, 86_400_000).code, 'score_limit');
+  assert.equal(validateScore(endless, 1001, 0).code, 'score_too_fast');
+  assert.equal(validateScore(endless, 1200, 1000).ok, true);
+  assert.equal(validateScore(endless, 1201, 1000).code, 'score_too_fast');
+  assert.equal(validateScore(endless, 835 * 10_000, 30 * 86_400_000).ok, true, 'there is no rules-level duration limit');
+  assert.equal(validateScore(endless, MAX_SCORE, Math.ceil((MAX_SCORE - 1000) / 200) * 1000).ok, true);
+  assert.equal(validateScore(endless, MAX_SCORE + 1, Number.MAX_SAFE_INTEGER).code, 'invalid_score');
 });
 
 test('aim has 36 distinct mode/difficulty/drill/input boards with explicit control labels', () => {
