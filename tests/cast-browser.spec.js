@@ -42,6 +42,14 @@ async function observeVoice(page) {
       const entry = { id, host: window.__arcade.getState().state, done: false };
       window.__voicePreviews.push(entry);
       entry.played = await original.call(this, id); entry.done = true;
+      const buffer = this.voiceBuffers.get(id);
+      let squares = 0, peak = 0, samples = 0;
+      if (buffer) for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+        for (const sample of buffer.getChannelData(channel)) {
+          squares += sample * sample; peak = Math.max(peak, Math.abs(sample)); samples++;
+        }
+      }
+      Object.assign(entry, { peak, rms: samples ? Math.sqrt(squares / samples) : 0 });
       return entry.played;
     };
   });
@@ -136,7 +144,9 @@ test('voice pack persists and explicit previews respect mute, pause the game and
     await expect(page.locator('#voice-preview-status')).toContainText('游戏保持暂停');
     expect((await current(page)).state).toBe('paused');
     const last = await page.evaluate(() => window.__voicePreviews.at(-1));
-    expect(last).toEqual({ id, host: 'paused', done: true, played: true });
+    expect(last).toMatchObject({ id, host: 'paused', done: true, played: true });
+    expect(last.peak, `${id} decoded audio must contain an audible signal`).toBeGreaterThan(.01);
+    expect(last.rms, `${id} decoded audio must not be silent or nearly silent`).toBeGreaterThan(.003);
     const paused = (await current(page)).game;
     await page.clock.runFor(1000);
     expect((await current(page)).game).toEqual(paused);

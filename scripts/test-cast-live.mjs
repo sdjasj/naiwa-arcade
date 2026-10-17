@@ -3,7 +3,7 @@
  *
  * NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ \
  *   node scripts/test-cast-live.mjs
- * Optional: NAIWA_EXPECT_VERSION (default 7.1.1), NAIWA_EXPECT_BUILD,
+ * Optional: NAIWA_EXPECT_VERSION (default 7.1.2), NAIWA_EXPECT_BUILD,
  * PLAYWRIGHT_FIREFOX_EXECUTABLE; uses the environment HTTPS/HTTP proxy.
  *
  * Uses only cosmetic controls, voice previews and the Guandan ready screen.
@@ -16,7 +16,7 @@ import { writeFile } from 'node:fs/promises';
 import { firefox, expect } from '@playwright/test';
 
 if (process.argv.includes('--help')) {
-  console.log('Usage: NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ node scripts/test-cast-live.mjs\nRead-only Firefox check: four cosmetic portraits, saved preferences, Guandan ready seats, real voice decoding/playback and mute.\nOptional NAIWA_EXPECT_VERSION (default 7.1.1), NAIWA_EXPECT_BUILD, PLAYWRIGHT_FIREFOX_EXECUTABLE. Screenshots go to /tmp/naiwa-cast-live-*.png. No game or leaderboard identity is created.');
+  console.log('Usage: NAIWA_TEST_URL=https://sdjasj.github.io/naiwa-arcade/ node scripts/test-cast-live.mjs\nRead-only Firefox check: four cosmetic portraits, saved preferences, Guandan ready seats, decoded PCM energy, real WebAudio output and mute.\nOptional NAIWA_EXPECT_VERSION (default 7.1.2), NAIWA_EXPECT_BUILD, PLAYWRIGHT_FIREFOX_EXECUTABLE. Screenshots go to /tmp/naiwa-cast-live-*.png. No game or leaderboard identity is created.');
   process.exit(0);
 }
 if (!process.env.NAIWA_TEST_URL) throw new Error('Set NAIWA_TEST_URL explicitly. Use --help for usage.');
@@ -68,6 +68,42 @@ async function observeRealAudio(page) {
     const { GameAudio } = await import(url.href);
     const original = GameAudio.prototype.previewVoice;
     let instance;
+    function pcmStats(buffer) {
+      let peak = 0, squares = 0, samples = 0, nonzero = 0;
+      for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+        for (const value of buffer.getChannelData(channel)) {
+          peak = Math.max(peak, Math.abs(value)); squares += value * value;
+          samples++; if (value !== 0) nonzero++;
+        }
+      }
+      return { peak, rms: samples ? Math.sqrt(squares / samples) : 0,
+        nonzeroFraction: samples ? nonzero / samples : 0, samples };
+    }
+    async function measureOutput(audio, duration) {
+      const analyser = audio.context.createAnalyser();
+      analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0;
+      // A side tap observes the real post-master signal. The application's
+      // master → destination connection is left intact, with no extra output.
+      audio.master.connect(analyser);
+      const values = new Float32Array(analyser.fftSize);
+      let peak = 0, squares = 0, samples = 0, nonzero = 0, blocks = 0;
+      const until = performance.now() + Math.min(4.65, duration + .15) * 1000;
+      try {
+        while (performance.now() < until) {
+          analyser.getFloatTimeDomainData(values);
+          for (const value of values) {
+            peak = Math.max(peak, Math.abs(value)); squares += value * value;
+            samples++; if (value !== 0) nonzero++;
+          }
+          blocks++;
+          await new Promise(resolve => setTimeout(resolve, 20));
+        }
+      } finally {
+        audio.master.disconnect(analyser); analyser.disconnect();
+      }
+      return { done: true, peak, rms: samples ? Math.sqrt(squares / samples) : 0,
+        nonzeroFraction: samples ? nonzero / samples : 0, blocks };
+    }
     // Observe the application's own return value and decoded buffer. All actual
     // fetching, decoding, gating and playback still run through the original.
     window.__castLiveAudio = { calls: [], inspect: () => ({ enabled: instance?.enabled,
@@ -80,6 +116,13 @@ async function observeRealAudio(page) {
       const buffer = this.voiceBuffers.get(id);
       Object.assign(entry, { done: true, duration: buffer?.duration || 0, sampleRate: buffer?.sampleRate || 0,
         channels: buffer?.numberOfChannels || 0, context: this.context?.state });
+      entry.pcm = buffer ? pcmStats(buffer) : null;
+      entry.output = { done: false };
+      if (entry.played && buffer) {
+        // Observe in the background so the wrapper preserves preview timing.
+        measureOutput(this, buffer.duration).then(result => { entry.output = result; })
+          .catch(error => { entry.output = { done: true, error: String(error.message || error) }; });
+      } else entry.output = { done: true, error: 'Preview did not start.' };
       return entry.played;
     };
   });
@@ -102,7 +145,11 @@ async function main() {
   page.on('response', response => {
     const path = new URL(response.url()).pathname;
     if (response.status() >= 400) errors.push(`HTTP ${response.status()} ${path}`);
-    if (/\/assets\/(cast\/.*\.webp|voices\/.*\.mp3)$/.test(path)) resources.set(path, response.status());
+    if (/\/assets\/(cast\/.*\.webp|voices\/.*\.mp3)$/.test(path)) {
+      // A reload can revalidate with 304; retain the original successful GET.
+      const statuses = resources.get(path) || new Set();
+      statuses.add(response.status()); resources.set(path, statuses);
+    }
   });
   const url = new URL(frontend); url.searchParams.set('debug', '');
   await page.goto(url.href, { waitUntil: 'networkidle', timeout });
@@ -112,7 +159,7 @@ async function main() {
     if (!response.ok) throw new Error(`Release metadata returned HTTP ${response.status()}`);
     return response.json();
   });
-  assert.equal(release.version, process.env.NAIWA_EXPECT_VERSION || '7.1.1', 'Unexpected deployed version.');
+  assert.equal(release.version, process.env.NAIWA_EXPECT_VERSION || '7.1.2', 'Unexpected deployed version.');
   if (process.env.NAIWA_EXPECT_BUILD) assert.equal(release.build, process.env.NAIWA_EXPECT_BUILD, 'Unexpected deployed build.');
   await expect(page.locator('#cast-choices [data-skin]')).toHaveCount(4);
   await expect.poll(async () => new Set(await portraitHashes(page)).size, { timeout }).toBe(4);
@@ -151,11 +198,17 @@ async function main() {
   for (const [id, label] of Object.entries(lines)) {
     await page.locator(`[data-voice-preview="${id}"]`).click();
     await expect(page.locator('#voice-preview-status')).toHaveText(`试听「${label}」。`, { timeout });
+    await expect.poll(() => page.evaluate(() => window.__castLiveAudio.calls.at(-1)?.output.done), { timeout }).toBe(true);
     const result = await page.evaluate(() => window.__castLiveAudio.calls.at(-1));
     assert.equal(result.id, id); assert.equal(result.host, 'ready');
     assert.equal(result.done, true); assert.equal(result.played, true);
     assert.ok(result.duration > .1 && result.duration <= 4.5 && result.sampleRate > 0 && result.channels > 0, 'The real voice file must decode.');
     assert.equal(result.context, 'running');
+    assert.ok(result.pcm?.peak > .01 && result.pcm.rms > .003 && result.pcm.nonzeroFraction > .02,
+      `${id} decoded PCM is silent or too quiet: ${JSON.stringify(result.pcm)}`);
+    assert.ok(!result.output.error && result.output.blocks > 1 && result.output.peak > .002
+      && result.output.rms > .0005 && result.output.nonzeroFraction > .02,
+    `${id} real post-master WebAudio output is silent or too quiet: ${JSON.stringify(result.output)}`);
     await ready(page);
   }
   const played = await page.evaluate(() => window.__castLiveAudio.calls);
@@ -171,15 +224,15 @@ async function main() {
   await page.locator('#player-window').screenshot({ path: '/tmp/naiwa-cast-live-guandan-ready.png' });
   const canvas = await page.locator('#game-canvas').evaluate(element => element.toDataURL('image/png').split(',')[1]);
   await writeFile('/tmp/naiwa-cast-live-guandan-canvas.png', Buffer.from(canvas, 'base64'));
-  for (const file of ['cast/naidan-v1.webp', 'cast/naigou-v1.webp', 'cast/naishu-v1.webp', 'voices/kakatte.mp3', 'voices/andy-v2.mp3']) {
-    assert.ok([...resources].some(([path, status]) => path.endsWith(`/assets/${file}`) && status === 200), `Expected real HTTP 200 for ${file}`);
+  for (const file of ['cast/naidan-v1.webp', 'cast/naigou-v1.webp', 'cast/naishu-v1.webp', 'voices/kakatte.mp3', 'voices/andy-v3.mp3']) {
+    assert.ok([...resources].some(([path, statuses]) => path.endsWith(`/assets/${file}`) && statuses.has(200)), `Expected real HTTP 200 for ${file}`);
   }
   await ready(page);
   assert.equal(await page.evaluate(() => localStorage.getItem('naiwa:leaderboard:v1:identity')), null, 'Read-only acceptance must not create a leaderboard identity.');
   assert.deepEqual(writes, [], 'Read-only acceptance must not issue any write requests.');
   assert.deepEqual(errors, [], 'No browser or asset errors are allowed.');
   return { version: release.version, build: release.build, portraits: 4, readySeats: 4,
-    voiceDecodes: played.map(({ id, played, duration, sampleRate }) => ({ id, played, duration, sampleRate })),
+    voiceDecodes: played.map(({ id, played, duration, sampleRate, pcm, output }) => ({ id, played, duration, sampleRate, pcm, output })),
     resourceHTTP200: 5, gameStarts: 0, writeRequests: writes.length, identities: 0,
     screenshots: ['/tmp/naiwa-cast-live-panel.png', '/tmp/naiwa-cast-live-guandan-ready.png', '/tmp/naiwa-cast-live-guandan-canvas.png'] };
 }

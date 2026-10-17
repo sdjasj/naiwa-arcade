@@ -27,7 +27,7 @@
 
 `cast/naidan-v1.webp`、`cast/naigou-v1.webp`、`cast/naishu-v1.webp` 是参考上述形象、经内置 imagegen 生成的游戏动画图集；不直接使用视频封面作游戏精灵，也不表示原作者制作或授权这些动作帧。生成提示词与源 PNG 在源代码仓库的 `output/imagegen/`，网站仅部署优化后的透明 WebP。
 
-`voices/kakatte.mp3` 为不知火舞语音合集的短录音片段。v7.1.1 的 `voices/andy-v2.mp3` 改为用户明确指定的奶史_ [《选择奶蛙还是奶蛋？》约 7 秒处](https://www.bilibili.com/video/BV1WGGN6XE2U/?t=7)的“安迪”，保留该视频中的音高与速度；已移除上一版采用其他语音合集的 `voices/andy.mp3`。详细来源、原台词和切点见 [语音来源](https://github.com/sdjasj/naiwa-arcade/blob/main/docs/voice-sources.md)。上述参考视频与完整音轨没有打包进网站。
+`voices/kakatte.mp3` 为不知火舞语音合集的短录音片段。v7.1.2 的 `voices/andy-v3.mp3` 采用用户明确指定的奶史_ [《选择奶蛙还是奶蛋？》约 7 秒处](https://www.bilibili.com/video/BV1WGGN6XE2U/?t=7)的“安迪”，保留该视频中的音高与速度，正确重置截取时间轴后导出；已移除上一版采用其他语音合集的 `voices/andy.mp3`。详细来源、原台词和切点见 [语音来源](https://github.com/sdjasj/naiwa-arcade/blob/main/docs/voice-sources.md)。上述参考视频与完整音轨没有打包进网站。
 
 ## 既有素材授权说明
 

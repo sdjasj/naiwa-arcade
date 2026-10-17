@@ -7,7 +7,7 @@ test('recorded line manifest maps stable IDs to distinct local short assets', as
   assert.deepEqual(Object.keys(VOICE_LINES), ['kakatte', 'andy']);
   assert.equal(VOICE_LINES.kakatte.original, 'かかってらっしゃい');
   assert.equal(VOICE_LINES.andy.original, 'アンディ');
-  const files = { kakatte: 'kakatte.mp3', andy: 'andy-v2.mp3' };
+  const files = { kakatte: 'kakatte.mp3', andy: 'andy-v3.mp3' };
   for (const [id, line] of Object.entries(VOICE_LINES)) {
     assert.equal(line.id, id);
     assert.equal(line.file, `../assets/voices/${files[id]}`);
