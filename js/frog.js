@@ -1,5 +1,8 @@
 import { FROG_ATLASES } from './frog-atlas.js';
 import { sampleFrogAnimation } from './frog-animation.js';
+import { CAST_ATLASES } from './cast-atlas.js';
+import { FROG_SKINS, normalizeSkin, resolveSkin, castPose, sampleCastAnimation } from './cast.js';
+export { FROG_SKINS } from './cast.js';
 
 // Meme sprite provided by NaiLoong / linalg. New action frames are generated
 // from that identity reference; see assets/ATTRIBUTION.md.
@@ -12,6 +15,29 @@ const actionSheets = Object.fromEntries(Object.entries(FROG_ATLASES).map(([name,
 }));
 export const frogReady = Promise.all([sheet, ...Object.values(actionSheets)].map(image => image.decode().catch(() => undefined)));
 const actionSheetReady = name => actionSheets[name]?.complete && actionSheets[name].naturalWidth === 1536 && actionSheets[name].naturalHeight === 1024;
+let selectedSkin = 'naiwa';
+const castSheets = {}, castLoads = new Map();
+const castSheetReady = id => Boolean(castSheets[id]?.complete && castSheets[id].naturalWidth === CAST_ATLASES[id]?.width && castSheets[id].naturalHeight === CAST_ATLASES[id]?.height);
+export const getFrogSkin = () => selectedSkin;
+export function setFrogSkin(id) {
+  selectedSkin = normalizeSkin(id);
+  ensureSkinReady(selectedSkin);
+  return selectedSkin;
+}
+export function ensureSkinReady(id) {
+  id = normalizeSkin(id);
+  if (id === 'naiwa') return frogReady.then(() => Boolean(sheet.naturalWidth));
+  if (castSheetReady(id)) return Promise.resolve(true);
+  if (castLoads.has(id)) return castLoads.get(id);
+  const atlas = CAST_ATLASES[id];
+  if (!atlas) return Promise.resolve(false);
+  const image = new Image(); castSheets[id] = image;
+  image.src = new URL(`../assets/cast/${atlas.file}`, import.meta.url).href;
+  const pending = image.decode().then(() => castSheetReady(id)).catch(() => false).finally(() => castLoads.delete(id));
+  castLoads.set(id, pending);
+  return pending;
+}
+export const getFrogSkinName = options => FROG_SKINS.find(skin => skin.id === resolveSkin(selectedSkin, options))?.name || '奶蛙';
 export function frogAnimationStatus() {
   return Object.fromEntries(Object.keys(actionSheets).map(name => [name, actionSheetReady(name)]));
 }
@@ -20,28 +46,36 @@ export function frogAnimationStatus() {
 const animationCanvas = document.createElement('canvas');
 animationCanvas.width = animationCanvas.height = 320;
 const animationContext = animationCanvas.getContext('2d');
-function drawActionFrame(ctx, size, options) {
-  const current = sampleFrogAnimation(options.animation, options.animationTime, options.animationProgress);
-  if (!current || !actionSheetReady(current.atlas)) return false;
+function drawActionFrame(ctx, size, options, skin) {
+  const isCast = skin !== 'naiwa';
+  if (isCast && !castSheetReady(skin)) return false;
+  function sample(name, time, progress) {
+    if (isCast) return { ...sampleCastAnimation(name, time, progress), atlas: skin };
+    const pose = sampleFrogAnimation(name, time, progress);
+    return pose && actionSheetReady(pose.atlas) ? pose : null;
+  }
+  const current = sample(isCast ? castPose(options) : options.animation, isCast ? options.animationTime ?? animationTime : options.animationTime, options.animationProgress);
+  if (!current) return false;
+  const atlasFor = pose => isCast ? CAST_ATLASES[pose.atlas] : FROG_ATLASES[pose.atlas];
+  const sheetFor = pose => isCast ? castSheets[pose.atlas] : actionSheets[pose.atlas];
   const from = options.animationFrom;
-  const candidate = from && sampleFrogAnimation(from.name, from.time, from.progress);
-  const previous = candidate && actionSheetReady(candidate.atlas) ? candidate : null;
+  const previous = from && sample(from.name, from.time, from.progress);
   const mix = previous && Number.isFinite(options.animationMix) ? Math.max(0, Math.min(1, options.animationMix)) : 1;
   const unit = size * 1.6 / 256;
   // Most frames need no dissolve. Draw directly from the atlas in that case,
   // avoiding an offscreen surface copy for every spectator on mobile devices.
   if (mix === 1 && current.blend === 0) {
-    const atlas = FROG_ATLASES[current.atlas], frame = atlas.frames[current.row][current.frame];
+    const atlas = atlasFor(current), frame = atlas.frames[current.row][current.frame];
     const scale = atlas.scales[current.row] * unit;
-    ctx.drawImage(actionSheets[current.atlas], frame.x, frame.y, frame.width, frame.height,
-      (frame.left - 128) * scale, size * .64 - frame.foot * scale, frame.width * scale, frame.height * scale);
+    ctx.drawImage(sheetFor(current), frame.x, frame.y, frame.width, frame.height,
+      (frame.left - (atlas.cellWidth || 256) / 2) * scale, size * .64 - frame.foot * scale, frame.width * scale, frame.height * scale);
     return true;
   }
   animationContext.clearRect(0, 0, 320, 320);
   animationContext.globalCompositeOperation = 'lighter';
   function layer(sample, opacity) {
     if (!sample || opacity <= 0) return;
-    const atlas = FROG_ATLASES[sample.atlas], image = actionSheets[sample.atlas];
+    const atlas = atlasFor(sample), image = sheetFor(sample);
     if (!image.complete || !image.naturalWidth) return;
     const scale = atlas.scales[sample.row];
     for (const [index, weight] of [[sample.frame, 1 - sample.blend], [sample.next, sample.blend]]) {
@@ -49,7 +83,7 @@ function drawActionFrame(ctx, size, options) {
       const frame = atlas.frames[sample.row][index];
       animationContext.globalAlpha = weight * opacity;
       animationContext.drawImage(image, frame.x, frame.y, frame.width, frame.height,
-        160 + (frame.left - 128) * scale, 288 - frame.foot * scale, frame.width * scale, frame.height * scale);
+        160 + (frame.left - (atlas.cellWidth || 256) / 2) * scale, 288 - frame.foot * scale, frame.width * scale, frame.height * scale);
     }
   }
   layer(previous, 1 - mix); layer(current, mix);
@@ -80,7 +114,7 @@ export function drawFrog(ctx, x, y, size, options = {}) {
       ctx.fill(); ctx.stroke(); ctx.restore();
     }
   }
-  const animated = drawActionFrame(ctx, size, options);
+  const animated = drawActionFrame(ctx, size, options, resolveSkin(selectedSkin, options));
   if (!animated && sheet.complete && sheet.naturalWidth) {
     let row = 0, col = Math.floor(animationTime * 2) % 6;
     if (expression === 'laugh') { row = 4; col = 1 + Math.floor(animationTime * 9) % 4; }
@@ -135,8 +169,8 @@ export function drawCard(ctx, game) {
     ctx.save();
     ctx.fillStyle = '#386655'; ctx.strokeStyle = '#b6bd8066'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.ellipse(320, 224, 275, 109, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-    drawFrog(ctx, 158, 155, 99, { animation: 'laugh', animationTime: .5, expression: 'laugh' });
-    drawFrog(ctx, 490, 154, 98, { animation: 'laugh', animationTime: .2, expression: 'laugh', scaleX: -1 });
+    drawFrog(ctx, 158, 155, 99, { skinSlot: 0, animation: 'laugh', animationTime: .5, expression: 'laugh' });
+    drawFrog(ctx, 490, 154, 98, { skinSlot: 1, animation: 'laugh', animationTime: .2, expression: 'laugh', scaleX: -1 });
     for (const [i, face] of ['A', 'A', '♥2', 'K', 'K'].entries()) {
       ctx.save(); ctx.translate(234 + i*43, 238); ctx.rotate((i-2)*.1);
       ctx.fillStyle = i === 2 ? '#fff0c7' : '#fffdf0'; ctx.strokeStyle = '#c8cfb2'; ctx.lineWidth = 1;
@@ -144,7 +178,7 @@ export function drawCard(ctx, game) {
       ctx.fillStyle = i === 2 ? '#b65442' : '#354f40'; ctx.font = 'bold 25px Georgia'; ctx.textAlign = 'center'; ctx.fillText(face,0,-13);
       ctx.font = '21px Georgia'; ctx.fillText(i === 2 ? '配' : i%2 ? '♣' : '♠',0,17); ctx.restore();
     }
-    ctx.fillStyle = '#e2d99e'; ctx.textAlign = 'center'; ctx.font = '600 16px sans-serif'; ctx.fillText('一桌四蛙 · 笑到头游', 320, 75);
+    ctx.fillStyle = '#e2d99e'; ctx.textAlign = 'center'; ctx.font = '600 16px sans-serif'; ctx.fillText('奶家人同桌 · 笑到头游', 320, 75);
     ctx.restore();
   } else if (game === 'aim') {
     ctx.save();
@@ -213,7 +247,7 @@ export function drawCard(ctx, game) {
     ctx.fillStyle = '#fffaed'; ctx.beginPath(); ctx.roundRect(121, 58, 157, 15, 6); ctx.roundRect(362, 58, 157, 15, 6); ctx.fill();
     ctx.fillStyle = '#90aa79'; ctx.fillRect(125, 62, 140, 7); ctx.fillStyle = '#c28d9a'; ctx.fillRect(366, 62, 120, 7);
     drawFrog(ctx, 217, 197, 126, { pose: 'angry', rotation: .12 });
-    drawFrog(ctx, 443, 195, 122, { pose: 'laugh', scaleX: -1, rotation: -.12 });
+    drawFrog(ctx, 443, 195, 122, { skinSlot: 1, pose: 'laugh', scaleX: -1, rotation: -.12 });
     ctx.font = '900 italic 40px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#a57c5e'; ctx.fillText('VS', 329, 168);
     ctx.strokeStyle = '#f9f2d4'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(295, 194); ctx.lineTo(317, 212); ctx.lineTo(341, 192); ctx.stroke();
     ctx.restore();

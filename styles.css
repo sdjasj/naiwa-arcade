@@ -24,6 +24,39 @@
 .game-settings label { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #7b886c; }
 .game-settings select { font: inherit; color: #3d5637; font-weight: 600; border: 1px solid #d5dfc8; border-radius: 7px; padding: 8px 25px 8px 10px; background: #fffef8; cursor: pointer; }
 .settings-note { font-size: 10px; color: #849173; margin-left: auto; }
+.cast-settings { display: grid; grid-template-columns: minmax(0,1fr) minmax(255px,.7fr); gap: 24px; margin: -3px 0 24px; padding: 18px 22px 12px; background: #f0f3e9; border: 1px solid #dce4d2; border-radius: 12px; }
+.cast-picker { min-width: 0; }
+.cast-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px 14px; margin-bottom: 9px; }
+.cast-heading .section-kicker { font-size: 8px; letter-spacing: 1.4px; }
+.cast-heading h3 { margin: 0; font-size: 13px; font-weight: 500; color: #66775b; }
+.cast-heading h3 strong { color: #3c6039; font-weight: 800; }
+.cast-choices { display: grid; grid-template-columns: repeat(4,minmax(0,84px)); gap: 9px; }
+.cast-choice { min-width: 0; padding: 3px 5px 8px; border: 1px solid #d5decb; border-radius: 9px; background: #fdfef7; display: flex; flex-direction: column; align-items: center; gap: 1px; color: #798570; }
+.cast-choice canvas { display: block; width: 60px; height: 60px; max-width: 100%; object-fit: contain; }
+.cast-choice span { font-size: 11px; font-weight: 600; }
+.cast-choice[aria-pressed="true"] { border-color: #648657; background: #e1ebd3; box-shadow: inset 0 0 0 1px #648657; color: #3d663a; }
+.cast-choice:hover { border-color: #79946a; }
+.cast-note { min-height: 15px; margin: 8px 0 0; color: #7d8b70; font-size: 10px; line-height: 1.7; }
+.section-note #cast-ready-name { margin: 0; color: inherit; }
+.voice-settings { min-width: 0; align-self: center; border-left: 1px solid #d8e1cc; padding-left: 24px; }
+.voice-settings label { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; font-size: 11px; color: #6b7e5b; font-weight: 600; }
+.voice-settings select { min-width: 0; max-width: 100%; font: inherit; color: #46613d; border: 1px solid #cdd9c0; border-radius: 6px; background: #fcfdf7; padding: 7px 10px; }
+.voice-previews { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.voice-previews button { min-height: 34px; padding: 6px 10px; border: 1px solid #d2dcc6; border-radius: 6px; background: #fcfdf5; color: #667d52; font-size: 10px; }
+@media(max-width:600px) {
+  .cast-settings { grid-template-columns: minmax(0,1fr); gap: 13px; padding: 13px 12px 12px; }
+  .cast-heading { gap: 5px; }
+  .cast-heading .section-kicker { display: none; }
+  .cast-heading h3 { font-size: 12px; }
+  .cast-choices { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; }
+  .cast-choice { padding: 2px 2px 7px; }
+  .cast-choice canvas { width: 56px; height: 56px; }
+  .voice-settings { border-left: 0; border-top: 1px solid #d8e1cc; padding: 12px 0 0; }
+  .voice-previews { margin-top: 8px; gap: 6px; }
+  .voice-previews button { min-height: 44px; padding: 7px 9px; }
+  .voice-settings select { min-height: 40px; }
+  .cast-note { font-size: 9px; }
+}
 .level-panel, .forms-panel { padding: 17px; background: #fffdf3; border: 1px solid #e1e6d4; border-radius: 11px; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
 .panel-heading h3 { margin: 0; font-size: 13px; font-weight: 700; }

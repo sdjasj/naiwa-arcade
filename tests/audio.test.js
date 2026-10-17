@@ -44,6 +44,7 @@ class Context {
 }
 function harness({ sample = true } = {}) {
   const audio = new GameAudio();
+  audio.setVoicePack('classic');
   const context = new Context();
   audio.context = context; audio.master = context.createGain();
   if (sample) audio.laughBuffer = { duration: 15.696 };
@@ -213,6 +214,7 @@ test('unlock creates audio only on demand, decodes the local sample, and recover
   globalThis.fetch = async url => { requests.push(String(url)); return { ok: true, arrayBuffer: async () => new ArrayBuffer(1) }; };
   try {
     const audio = new GameAudio();
+    audio.setVoicePack('classic');
     assert.equal(created, 0);
     assert.equal(await audio.unlock(), true);
     await audio.loadPromise;
@@ -241,5 +243,209 @@ test('missing local audio keeps playback functional through synthesis without re
     assert.equal(requests, 1);
     assert.equal(audio.play('laugh:boss'), true);
     assert.equal(audio.laughSource.source.type, 'sawtooth');
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+function memeHarness() {
+  const { audio, context } = harness();
+  audio.voiceBuffers.set('kakatte', { duration: 1.18 });
+  audio.voiceBuffers.set('andy', { duration: 1.55 });
+  audio.setVoicePack('meme');
+  return { audio, context };
+}
+
+test('meme is the default pack; mapped speech plays whole files and accepted repeats alternate with laughter', () => {
+  assert.equal(new GameAudio().voicePack, 'meme');
+  const { audio, context } = memeHarness();
+  assert.equal(audio.setVoicePack('invalid'), 'meme');
+  assert.equal(audio.play('laugh:start'), true);
+  const voice = audio.laughSource;
+  assert.equal(voice.voiceId, 'kakatte');
+  assert.equal(voice.kind, 'voice');
+  assert.deepEqual(voice.source.starts[0], [context.currentTime, 0, 1.18]);
+  assert.equal(voice.source.playbackRate.value, 1);
+  assert.ok(Math.abs(voice.endsAt - context.currentTime - 1.18) < 1e-10);
+  for (let i = 0; i < 500; i++) assert.equal(audio.play('laugh:attack'), false);
+  assert.equal(audio.laughSource, voice, 'compact attack laughs cannot cut off a phrase');
+  context.advance(3);
+  assert.equal(audio.play('laugh:start'), true);
+  assert.equal(audio.laughSource.kind, 'laugh');
+  context.advance(3);
+  assert.equal(audio.play('laugh:start'), true);
+  assert.equal(audio.laughSource.voiceId, 'kakatte');
+  audio.stopAll();
+  assert.equal(audio.play('laugh:hurt'), true);
+  assert.equal(audio.laughSource.voiceId, 'andy');
+  assert.equal(audio.play('laugh:victory'), true);
+  assert.equal(audio.laughSource.kind, 'laugh', 'victory retains the real familiar laugh');
+});
+
+test('meme lines share priority and cooling with laughs; effects cannot chatter on every click', () => {
+  const { audio, context } = memeHarness();
+  assert.equal(audio.play('launch'), true);
+  assert.equal(audio.laughSource.voiceId, 'kakatte');
+  context.advance(2);
+  audio.play('miss');
+  assert.equal(audio.laughSource, null, 'effect comments have a six-second global cooldown');
+  context.advance(4.1);
+  audio.play('miss');
+  assert.equal(audio.laughSource.voiceId, 'andy');
+  assert.equal([...audio.sources].filter(v => ['voice', 'laugh'].includes(v.kind)).length, 1);
+  audio.stopAll();
+  audio.play('laugh:upgrade');
+  assert.equal(audio.play('voice:andy'), false);
+  assert.equal(audio.laughSource.event, 'laugh:upgrade');
+  const old = audio.laughSource;
+  assert.equal(audio.setVoicePack('classic'), 'classic');
+  assert.ok(old.source.stops.includes(undefined));
+  assert.equal(audio.sources.size, 0);
+  audio.play('laugh:start');
+  assert.equal(audio.laughSource.kind, 'laugh');
+});
+
+test('preview uses recorded voices, respects mute/running state and releases immediately on stop', async () => {
+  const { audio, context } = memeHarness();
+  assert.equal(await audio.previewVoice('unknown'), false);
+  assert.equal(await audio.previewVoice('andy'), true);
+  assert.equal(audio.laughSource.voiceId, 'andy');
+  assert.equal(audio.laughSource.priority, 9);
+  assert.equal(audio.play('laugh:victory'), false, 'explicit preview stays audible');
+  const voice = audio.laughSource;
+  audio.setEnabled(false);
+  assert.ok(voice.source.stops.includes(undefined));
+  assert.equal(await audio.previewVoice('andy'), false);
+  audio.setEnabled(true); context.state = 'closed';
+  assert.equal(await audio.previewVoice('andy'), false);
+});
+
+test('slow preview decoding never plays after pause, mute, pack changes, or a newer preview request', async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const cancel of ['stop', 'mute', 'pack', 'supersede']) {
+      const { audio, context } = harness();
+      audio.voicePack = 'meme';
+      const decoders = [];
+      context.decodeAudioData = () => new Promise(resolve => { decoders.push(resolve); });
+      globalThis.fetch = async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(1) });
+      const pending = audio.previewVoice('kakatte');
+      while (decoders.length < 2) await Promise.resolve();
+      if (cancel === 'stop') audio.stopAll();
+      if (cancel === 'mute') audio.setEnabled(false);
+      if (cancel === 'pack') audio.setVoicePack('classic');
+      if (cancel === 'supersede') {
+        audio.voiceBuffers.set('andy', { duration: 1.2 });
+        assert.equal(await audio.previewVoice('andy'), true);
+      }
+      for (const finishDecode of decoders) finishDecode({ duration: 1.18 });
+      assert.equal(await pending, false, cancel);
+      assert.equal(audio.laughSource?.voiceId || null, cancel === 'supersede' ? 'andy' : null);
+      assert.equal(context.nodes.filter(n => n.type === 'buffer').length, cancel === 'supersede' ? 1 : 0);
+    }
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('first-gesture preview creates and unlocks a context, loads once, and does not fetch on construction', async () => {
+  const originalAudioContext = globalThis.AudioContext, originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.AudioContext = class extends Context {
+    constructor() { super(); this.state = 'suspended'; }
+    decodeAudioData(_data, success) { const buffer = { duration: 1.3 }; success(buffer); return Promise.resolve(buffer); }
+  };
+  globalThis.fetch = async url => { requests.push(String(url)); return { ok: true, arrayBuffer: async () => new ArrayBuffer(1) }; };
+  try {
+    const audio = new GameAudio();
+    assert.equal(requests.length, 0);
+    assert.equal(await audio.previewVoice('kakatte'), true);
+    assert.equal(audio.context.state, 'running');
+    assert.equal(audio.laughSource.voiceId, 'kakatte');
+    assert.equal(requests.filter(url => url.endsWith('/voices/kakatte.mp3')).length, 1);
+    assert.equal(requests.filter(url => url.endsWith('/voices/andy.mp3')).length, 1);
+    audio.stopAll();
+    assert.equal(await audio.previewVoice('andy'), true);
+    assert.equal(requests.length, 3, 'laugh and two lines are each loaded once');
+  } finally { globalThis.AudioContext = originalAudioContext; globalThis.fetch = originalFetch; }
+});
+
+test('bad or unavailable speech files preserve laughter without queued playback or invented speech', async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const duration of [0, 15.7, Infinity, NaN]) {
+      const { audio, context } = harness(); audio.voicePack = 'meme';
+      globalThis.fetch = async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(1) });
+      context.decodeAudioData = (_data, success) => { const buffer = { duration }; success(buffer); return Promise.resolve(buffer); };
+      assert.equal(await audio.previewVoice('kakatte'), false);
+      assert.equal(audio.play('laugh:start'), true);
+      assert.equal(audio.laughSource.kind, 'laugh');
+      audio.stopAll();
+    }
+    const { audio } = harness(); audio.voicePack = 'meme';
+    let requests = 0;
+    globalThis.fetch = async () => { requests++; throw new Error('offline'); };
+    assert.equal(await audio.previewVoice('andy'), false);
+    assert.equal(await audio.previewVoice('andy'), false);
+    assert.equal(requests, 3, 'one automatic attempt per file, then one explicit retry of the requested line');
+    assert.equal(audio.play('laugh:hurt'), true);
+    assert.equal(audio.laughSource.kind, 'laugh');
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('generic game laughs and combos can speak without allowing launch or attack noises to truncate them', () => {
+  const { audio, context } = memeHarness();
+  assert.equal(audio.play('laugh'), true);
+  const andy = audio.laughSource;
+  assert.equal(andy.voiceId, 'andy');
+  assert.equal(audio.play('laugh:attack'), false);
+  audio.play('launch');
+  assert.equal(audio.laughSource, andy);
+  context.advance(3);
+  assert.equal(audio.play('laugh:combo'), true);
+  assert.equal(audio.laughSource.voiceId, 'kakatte');
+});
+
+test('a current different preview interrupts the previous preview immediately without opening automatic-event preemption', async () => {
+  const { audio } = memeHarness();
+  assert.equal(await audio.previewVoice('kakatte'), true);
+  const first = audio.laughSource;
+  assert.equal(await audio.previewVoice('andy'), true, 'a different button takes over even at the same audio time');
+  assert.ok(first.source.stops.includes(undefined));
+  assert.equal(first.source.disconnected, true);
+  assert.equal(audio.laughSource.voiceId, 'andy');
+  assert.equal([...audio.sources].filter(v => ['voice', 'laugh'].includes(v.kind)).length, 1);
+  assert.equal(await audio.previewVoice('andy'), false, 'repeated identical taps still respect their short cooldown');
+  assert.equal(audio.play('laugh:victory'), false);
+});
+
+test('an explicit preview recovers after transient loading failure while automatic preloads stay bounded', async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const { audio, context } = harness(); audio.voicePack = 'meme';
+    const requests = [];
+    let online = false;
+    globalThis.fetch = async url => {
+      requests.push(String(url));
+      return online ? { ok: true, arrayBuffer: async () => new ArrayBuffer(1) } : { ok: false };
+    };
+    context.decodeAudioData = (_data, success) => {
+      const buffer = { duration: 1.3 }; success(buffer); return Promise.resolve(buffer);
+    };
+    assert.equal(await audio.previewVoice('andy'), false);
+    assert.equal(requests.length, 2, 'initial unlock preloads each line once');
+    assert.equal(audio.voiceLoads.size, 0, 'failed settled promises are removed');
+    for (let i = 0; i < 30; i++) {
+      await audio.unlock();
+      audio.preloadVoices();
+      audio.play('laugh:hurt');
+    }
+    assert.equal(requests.length, 2, 'input and preload calls do not repeatedly retry a failed asset');
+    online = true;
+    assert.equal(await audio.previewVoice('andy'), true, 'a new user request retries and plays the recovered recording');
+    assert.equal(requests.length, 3);
+    assert.ok(requests[2].endsWith('/voices/andy.mp3'));
+    assert.equal(audio.voiceLoads.size, 0, 'successful settled promises are also removed');
+    assert.equal(audio.laughSource.voiceId, 'andy');
+    assert.ok(audio.voiceBuffers.has('andy'));
+    audio.stopAll();
+    assert.equal(await audio.previewVoice('andy'), true);
+    assert.equal(requests.length, 3, 'decoded successes remain cached');
   } finally { globalThis.fetch = originalFetch; }
 });

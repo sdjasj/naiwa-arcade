@@ -1,7 +1,9 @@
+import { VOICE_LINES, voiceForEvent } from './voice-lines.js';
+
 // All sounds stay local. No AudioContext is created before unlock(), which is
 // called by the application from a click, touch, or keyboard interaction.
 // Durations are wall-clock seconds; offsets refer to our bundled 15.7s laugh.
-// One laugh voice is shared across games, with no delayed playback queue.
+// One human-voice channel is shared across games, with no delayed playback queue.
 const LAUGHS = {
   laugh:           { priority: 1, cooldown: .85, duration: 1.2, offsets: [.08, 3.3, 6.4, 9.5], rate: 1, volume: .44, beats: 5, pitch: 175 },
   'laugh:attack':  { priority: 1, cooldown: .46, duration: .32, offsets: [.08, 3.3, 9.5], rate: 1.08, volume: .32, beats: 2, pitch: 205 },
@@ -30,6 +32,13 @@ export class GameAudio {
     this.laughVariations = new Map();
     this.loadPromise = null;
     this.unlockPromise = null;
+    this.voicePack = 'meme';
+    this.voiceBuffers = new Map();
+    this.voiceLoads = new Map();
+    this.voiceFailures = new Set();
+    this.playbackGeneration = 0;
+    this.previewRequest = 0;
+    this.lastEffectVoice = -Infinity;
   }
 
   async unlock() {
@@ -50,6 +59,7 @@ export class GameAudio {
 
       // Begin loading immediately, but never make gameplay wait for a download.
       this.loadLaugh();
+      if (this.voicePack === 'meme') this.preloadVoices();
       if (this.context.state === 'running') return true;
       const resumeResult = this.context.resume();
       this.unlockPromise = Promise.resolve(resumeResult)
@@ -81,6 +91,105 @@ export class GameAudio {
     });
   }
 
+  setVoicePack(pack) {
+    if (!['classic', 'meme'].includes(pack)) return this.voicePack;
+    if (pack !== this.voicePack) {
+      this.stopAll();
+      this.voicePack = pack;
+    }
+    if (pack === 'meme' && this.enabled && this.context) this.preloadVoices();
+    return this.voicePack;
+  }
+
+  preloadVoices() {
+    for (const id of Object.keys(VOICE_LINES)) this.loadVoice(id);
+  }
+
+  loadVoice(id, { retry = false } = {}) {
+    if (!Object.hasOwn(VOICE_LINES, id) || !this.context) return Promise.resolve(null);
+    if (this.voiceBuffers.has(id)) return Promise.resolve(this.voiceBuffers.get(id));
+    if (this.voiceLoads.has(id)) return this.voiceLoads.get(id);
+    if (!retry && this.voiceFailures.has(id)) return Promise.resolve(null);
+    const context = this.context;
+    const promise = (async () => {
+      const response = await fetch(new URL(VOICE_LINES[id].file, import.meta.url));
+      if (!response.ok) return null;
+      const data = await response.arrayBuffer();
+      if (data.byteLength > 500_000) return null;
+      const buffer = await new Promise((resolve, reject) => {
+        const result = context.decodeAudioData(data, resolve, reject);
+        if (result && typeof result.then === 'function') result.then(resolve, reject);
+      });
+      // A damaged or accidentally replaced full recording must never become an
+      // unbounded in-game voice. Rejected assets leave the original laugh usable.
+      if (!Number.isFinite(buffer?.duration) || buffer.duration < .1 || buffer.duration > 4.5) return null;
+      this.voiceBuffers.set(id, buffer);
+      return buffer;
+    })().catch(() => null).then(buffer => {
+      if (buffer) this.voiceFailures.delete(id);
+      else this.voiceFailures.add(id);
+      return buffer;
+    }).finally(() => {
+      // Keep only in-flight work here. Explicit previews may retry a transient
+      // failure; automatic preloads stay quiet until a user asks again.
+      if (this.voiceLoads.get(id) === promise) this.voiceLoads.delete(id);
+    });
+    this.voiceLoads.set(id, promise);
+    return promise;
+  }
+
+  async previewVoice(id) {
+    if (!Object.hasOwn(VOICE_LINES, id) || !this.enabled) return false;
+    // unlock() can create a context and invalidate old voices. Capture the
+    // generation after that synchronous setup, before waiting on any promise.
+    const unlocking = this.unlock();
+    const generation = this.playbackGeneration;
+    const request = ++this.previewRequest;
+    // Capture an already-started preload before yielding so the same click
+    // cannot turn a fast failed preload into two download attempts.
+    const loading = this.loadVoice(id, { retry: true });
+    if (!await unlocking || generation !== this.playbackGeneration || request !== this.previewRequest) return false;
+    const buffer = await loading;
+    if (!buffer || generation !== this.playbackGeneration || request !== this.previewRequest
+      || !this.enabled || this.context?.state !== 'running') return false;
+    return this.voiceLine(id, { priority: 9, cooldown: .4, event: `preview:${id}`, replace: true });
+  }
+
+  voiceLine(id, { priority = 4, cooldown = 2.5, event = `voice:${id}`, replace = false } = {}) {
+    const context = this.context, buffer = this.voiceBuffers.get(id);
+    if (!buffer || !this.enabled || !context || context.state !== 'running' || !this.master) return false;
+    const at = context.currentTime;
+    if (this.laughSource && at >= this.laughSource.endsAt) this.release(this.laughSource);
+    const active = this.laughSource;
+    if (at - (this.laughHistory.get(event) ?? -Infinity) < cooldown) return false;
+    // An explicit, current preview can replace another preview immediately;
+    // automatic events still share the priority and global cooling rules.
+    if (!replace && active && priority <= active.priority) return false;
+    if (!replace && at - this.lastLaugh < .24 && (!active || priority <= active.priority)) return false;
+    if (active) this.release(active);
+    const source = context.createBufferSource(), gain = context.createGain();
+    source.buffer = buffer;
+    source.playbackRate.value = 1;
+    const duration = buffer.duration;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.linearRampToValueAtTime(.68, at + .012);
+    gain.gain.setValueAtTime(.68, at + Math.max(.012, duration - .025));
+    gain.gain.linearRampToValueAtTime(0.0001, at + duration);
+    source.connect(gain); gain.connect(this.master);
+    const voice = this.track(source, [gain], 'voice');
+    Object.assign(voice, { priority, event, voiceId: id, endsAt: at + duration });
+    try {
+      // Play the complete short file. The old laugh profiles' attack lengths
+      // and pulse envelopes must never chop a spoken syllable into 0.32s.
+      source.start(at, 0, duration);
+      source.stop(at + duration + .02);
+    } catch { this.release(voice); return false; }
+    this.laughSource = voice;
+    this.lastLaugh = at;
+    this.laughHistory.set(event, at);
+    return true;
+  }
+
   setEnabled(enabled) {
     this.enabled = Boolean(enabled);
     if (!this.enabled) this.stopAll();
@@ -108,6 +217,9 @@ export class GameAudio {
   }
 
   stopAll() {
+    this.playbackGeneration++;
+    this.previewRequest++;
+    this.lastEffectVoice = -Infinity;
     for (const voice of [...this.sources]) this.release(voice);
     this.laughSource = null;
     this.lastLaugh = -Infinity;
@@ -168,6 +280,13 @@ export class GameAudio {
     const context = this.context;
     const profile = Object.hasOwn(LAUGHS, kind) ? LAUGHS[kind] : null;
     if (!profile || !this.enabled || !context || context.state !== 'running' || !this.master) return false;
+    const variation = this.laughVariations.get(kind) || 0;
+    const voiceId = this.voicePack === 'meme' ? voiceForEvent(kind, variation) : null;
+    if (voiceId && this.voiceBuffers.has(voiceId)) {
+      const accepted = this.voiceLine(voiceId, { priority: Math.max(3, profile.priority), cooldown: Math.max(2.5, profile.cooldown), event: kind });
+      if (accepted) this.laughVariations.set(kind, variation + 1);
+      return accepted;
+    }
     const at = context.currentTime;
     // onended may arrive late in a suspended/background tab. Audio time remains
     // the authority, and every accepted request still has at most one voice.
@@ -179,7 +298,6 @@ export class GameAudio {
     // frame. Equal/lower priority chatter always respects the global limiter.
     if (at - this.lastLaugh < .24 && (!active || profile.priority <= active.priority)) return false;
     if (active) this.release(active);
-    const variation = this.laughVariations.get(kind) || 0;
     let voice;
     try {
       voice = this.laughBuffer?.duration > .05 ? this.sampleLaugh(at, profile, variation) : null;
@@ -269,6 +387,10 @@ export class GameAudio {
     try {
       // Bound voices even if a held pointer produces a flood of input events.
       if (Object.hasOwn(LAUGHS, kind)) return this.laugh(kind);
+      if (kind === 'voice:kakatte' || kind === 'voice:andy') {
+        if (this.voicePack !== 'meme') return this.laugh('laugh');
+        return this.voiceLine(kind.slice(6));
+      }
       const cost = kind === 'win' ? 4 : ['hit', 'score', 'launch'].includes(kind) ? 2 : 1;
       if (this.sources.size + cost > 32) return false;
       switch (kind) {
@@ -293,6 +415,13 @@ export class GameAudio {
           break;
         case 'miss': this.tone(225, 78, 0.19, 0.1, 0, 'triangle'); break;
         default: return false;
+      }
+      // Launches and mistakes also reach the simpler games. These optional
+      // comments share the voice channel and are globally limited to one / 6s.
+      if (this.voicePack === 'meme' && ['launch', 'miss'].includes(kind)
+        && this.context.currentTime - this.lastEffectVoice >= 6) {
+        const id = kind === 'launch' ? 'kakatte' : 'andy';
+        if (this.voiceLine(id, { priority: 2, cooldown: 6, event: `effect:${kind}` })) this.lastEffectVoice = this.context.currentTime;
       }
       return true;
     } catch {

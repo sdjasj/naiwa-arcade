@@ -17,7 +17,19 @@
 
 新增 `animation/naiwa-footwork-v1.webp` 由内置 image_gen 以战斗图集为角色参考生成：6 列×4 行，包含后退、跳跃、空中拳和空中脚共 24 帧。透明通道、单帧边界和脚底锚点均已校验。
 
-## 授权说明
+## 新增奶家人角色与语音（v7.1）
+
+奶蛋、奶狗与奶鼠的形象参考用户指定的 B 站 UP 主 [奶史_](https://space.bilibili.com/3707004881210316) 的公开视频：
+
+- [选择奶蛋还是奶狗？](https://www.bilibili.com/video/BV14yto62ESb/)：无四肢的黄色奶蛋；黄身、棕色垂耳、奶油胸腹、四足和弯尾的奶狗。
+- [选择奶鼠还是奶蛋？](https://www.bilibili.com/video/BV1WXgV66EjY/)：大圆耳、绿眼圈、短四肢和细长尾的黄色奶鼠。
+- [选择奶蛋还是奶蛙？](https://www.bilibili.com/video/BV1aN8n6sEGP/)：核对奶蛋的眼圈、嘴形与连续蛋形轮廓。
+
+`cast/naidan-v1.webp`、`cast/naigou-v1.webp`、`cast/naishu-v1.webp` 是参考上述形象、经内置 imagegen 生成的游戏动画图集；不直接使用视频封面作游戏精灵，也不表示原作者制作或授权这些动作帧。生成提示词与源 PNG 在源代码仓库的 `output/imagegen/`，网站仅部署优化后的透明 WebP。
+
+新增 `voices/kakatte.mp3` 与 `voices/andy.mp3` 为短录音片段，详细来源、原台词和处理记录见 [语音来源](../docs/voice-sources.md)。它们采用可核实的不知火舞原版语音补充来源，不标称为奶史_ 的独立配音。上述参考视频与完整音轨没有打包进网站。
+
+## 既有素材授权说明
 
 来源仓库 [README](https://github.com/lin-alg/NaiLoong#readme) 对代码与图片作了区分：代码采用 MIT；仓库自带图片注明来源即可使用；仓库引用的社区图片如用于商业项目，需要征得原作者同意。原始 MIT 文本保存在 [LICENSE-NaiLoong.txt](./LICENSE-NaiLoong.txt)。
 

@@ -682,7 +682,7 @@ export function createGame(env) {
     for (let i = 0; i < 10; i++) {
       const x = 61 + i * 94, y = 328 + Math.sin(time * 2 + i) * 3;
       rounded(x - 31, y + 9, 62, 37, 9, i % 2 ? '#d1bf9d' : '#c4b89b');
-      drawFrog(ctx, x, y, 29, { expression: 'laugh', animation: 'laugh', animationTime: time + i * 0.17 });
+      drawFrog(ctx, x, y, 29, { skinSlot: i % 4, expression: 'laugh', animation: 'laugh', animationTime: time + i * 0.17 });
     }
     for (const x of [84, W - 84]) {
       rounded(x - 11, 282, 22, 173, 7, '#aa8266', '#806d56');
@@ -721,7 +721,7 @@ export function createGame(env) {
     ctx.translate(player.x + a.offsetX, player.y);
     ctx.rotate(a.rotation);
     drawFrog(ctx, 0, -data.size * 0.64 * a.scaleY, data.size, {
-      expression, animation: a.name, animationTime: a.time * (a.state === 'walk' ? 0.65 : 1),
+      skinSlot: player.id, expression, animation: a.name, animationTime: a.time * (a.state === 'walk' ? 0.65 : 1),
       ...(a.progress === null ? {} : { animationProgress: a.progress }),
       ...(a.previous ? { animationFrom: { ...a.previous }, animationMix: a.blend } : {}),
       scaleX: a.scaleX * player.facing, scaleY: a.scaleY,
