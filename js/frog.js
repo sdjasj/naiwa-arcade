@@ -1,8 +1,8 @@
-import { FROG_ATLASES } from './frog-atlas.js?v=8fb8b395f3ed';
-import { sampleFrogAnimation } from './frog-animation.js?v=8fb8b395f3ed';
-import { CAST_ATLASES } from './cast-atlas.js?v=8fb8b395f3ed';
-import { FROG_SKINS, normalizeSkin, resolveSkin, castPose, sampleCastAnimation } from './cast.js?v=8fb8b395f3ed';
-export { FROG_SKINS } from './cast.js?v=8fb8b395f3ed';
+import { FROG_ATLASES } from './frog-atlas.js?v=a6800964d112';
+import { sampleFrogAnimation } from './frog-animation.js?v=a6800964d112';
+import { CAST_ATLASES } from './cast-atlas.js?v=a6800964d112';
+import { FROG_SKINS, normalizeSkin, resolveSkin, castPose, sampleCastAnimation } from './cast.js?v=a6800964d112';
+export { FROG_SKINS } from './cast.js?v=a6800964d112';
 
 // Meme sprite provided by NaiLoong / linalg. New action frames are generated
 // from that identity reference; see assets/ATTRIBUTION.md.

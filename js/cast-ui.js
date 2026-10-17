@@ -1,4 +1,4 @@
-import { FROG_SKINS, drawFrog, setFrogSkin, getFrogSkin, ensureSkinReady } from './frog.js?v=8fb8b395f3ed';
+import { FROG_SKINS, drawFrog, setFrogSkin, getFrogSkin, ensureSkinReady } from './frog.js?v=a6800964d112';
 
 const VOICE_NAMES = { kakatte: '刚刚跌落水', andy: '安迪' };
 

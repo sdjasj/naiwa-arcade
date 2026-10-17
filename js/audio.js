@@ -1,4 +1,4 @@
-import { VOICE_LINES, voiceForEvent } from './voice-lines.js?v=8fb8b395f3ed';
+import { VOICE_LINES, voiceForEvent } from './voice-lines.js?v=a6800964d112';
 
 // All sounds stay local. No AudioContext is created before unlock(), which is
 // called by the application from a click, touch, or keyboard interaction.
